@@ -1,0 +1,88 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/locus-core",
+    "crates/locus-fs",
+    "crates/locus-templates",
+    "crates/locus-context",
+    "crates/locus-network",
+    "crates/locus-agents",
+    "crates/locus-llm",
+    "crates/locus-research",
+    "crates/locus-plugins",
+    "src-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Ahmed Shadi <https://github.com/ahmadshady747-create>"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/ahmadshady747-create/LOCUS"
+homepage = "https://github.com/ahmadshady747-create/LOCUS"
+description = "Sovereign Ambient HUD & Formal-Verified Microkernel IDE in Pure Rust"
+readme = "README.md"
+
+[workspace.dependencies]
+# Tauri v2
+tauri = { version = "2.0", features = ["tray-icon"] }
+tauri-plugin-fs = "2.0"
+tauri-plugin-shell = "2.0"
+tauri-plugin-dialog = "2.0"
+tauri-plugin-opener = "2.0"
+tauri-plugin-updater = "2.0"
+tauri-plugin-global-shortcut = "2.0"
+
+# Async Runtime
+tokio = { version = "1.38", features = ["full", "tracing"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+
+# File System
+notify = { version = "6.1", features = [] }
+walkdir = "2.5"
+ignore = "0.4"
+globset = "0.4"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+toml = "0.8"
+toml_edit = "0.22"
+
+# Templates
+tera = "1.19"
+minijinja = "2.1"
+tokio-tungstenite = { version = "0.21", features = ["native-tls", "tokio-rustls"] }
+
+# LLM / Token counting
+tiktoken-rs = "0.5"
+
+# Utilities
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = { version = "0.1", features = ["std", "log", "valuable"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+uuid = { version = "1.7", features = ["v4", "serde", "fast-rng"] }
+chrono = { version = "0.4", features = ["serde"] }
+once_cell = "1.19"
+parking_lot = "0.12"
+dashmap = "5.5"
+async-trait = "0.1"
+futures = "0.3"
+tempfile = "3.10"
+flume = "0.11"
+semver = "1.0"
+regex = "1.10"
+glob = "0.3"
+hostname = "0.3"
+num_cpus = "1.16"
+keyring = "3.0"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 16
+panic = "abort"
+strip = true
+overflow-checks = true

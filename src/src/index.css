@@ -1,0 +1,205 @@
+@import "./styles/animations.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --locus-font-sans: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --locus-mono-font: "JetBrains Mono", "Geist Mono", "Fira Code", monospace;
+  --locus-code-size: 13px;
+  --locus-chat-size: 14px;
+  --locus-line-height: 1.5;
+  --locus-font-features: "liga" 1, "calt" 1, "zero" 1;
+}
+
+/* Arabic Typography & Logical Directional Support */
+[dir="rtl"] {
+  --locus-font-sans: "Tajawal", "Cairo", "Segoe UI Arabic", "Almarai", "Geist", -apple-system, BlinkMacSystemFont, sans-serif;
+  text-align: right;
+}
+
+[dir="rtl"] code,
+[dir="rtl"] pre,
+[dir="rtl"] kbd,
+[dir="rtl"] samp,
+[dir="rtl"] .font-mono,
+[dir="rtl"] .code-block,
+[dir="rtl"] .diff-code-container,
+[dir="rtl"] .code-editor-font {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: isolate !important;
+}
+
+.bidi-isolate {
+  unicode-bidi: isolate;
+}
+
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #07080c;
+}
+
+body {
+  font-family: var(--locus-font-sans);
+  background-color: #07080c;
+  color: #F4F4F5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #27272A transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #27272A;
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #3F3F46;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@layer base {
+  :focus-visible {
+    @apply outline-none ring-1 ring-locus-violet/70 ring-offset-2 ring-offset-locus-bg;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-locus-card/80 backdrop-blur-md border border-locus-border/80 rounded-xl shadow-sm;
+  }
+
+  .panel-hover {
+    @apply panel transition-all duration-200 hover:border-locus-violet/40 hover:shadow-glow-violet hover:-translate-y-0.5;
+  }
+
+  .glass-panel {
+    @apply bg-locus-panel/70 backdrop-blur-xl border border-white/5 shadow-inner-glow;
+  }
+
+  .sidebar-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 relative;
+  }
+
+  .sidebar-item-active {
+    @apply sidebar-item bg-gradient-to-r from-locus-violet/15 to-locus-violet/5 text-white border border-locus-violet/30 shadow-glow-violet;
+  }
+
+  .sidebar-item-inactive {
+    @apply sidebar-item text-locus-muted hover:text-locus-text hover:bg-locus-card/60;
+  }
+
+  .btn-primary {
+    @apply bg-gradient-to-r from-locus-violet to-locus-violetDim hover:brightness-110 active:scale-[0.98] text-white font-medium px-4 py-2 rounded-lg transition-all duration-150 shadow-glow-violet disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:active:scale-100 flex items-center justify-center gap-2;
+  }
+
+  .btn-secondary {
+    @apply bg-locus-card hover:bg-locus-card/80 active:scale-[0.98] text-locus-text font-medium px-3.5 py-2 rounded-lg border border-locus-border/80 hover:border-locus-muted/50 transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-40;
+  }
+
+  .btn-ghost {
+    @apply text-locus-muted hover:text-locus-text hover:bg-white/5 active:scale-[0.98] px-2.5 py-1.5 rounded-lg transition-all duration-150 text-xs flex items-center gap-1.5;
+  }
+
+  .input-dark {
+    @apply bg-[#0b0d13] border border-locus-border/80 rounded-lg px-3.5 py-2 text-sm text-locus-text placeholder:text-locus-muted/50 focus:outline-none focus:border-locus-violet/80 focus:ring-1 focus:ring-locus-violet/50 transition-all duration-150 w-full;
+  }
+
+  .input-compact {
+    @apply input-dark py-1.5 px-2.5 text-xs;
+  }
+
+  .tag {
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-locus-panel border border-locus-border text-locus-muted transition-colors;
+  }
+
+  .tag-active {
+    @apply tag bg-locus-violet/15 border-locus-violet/40 text-locus-violet font-semibold shadow-glow-violet;
+  }
+
+  .status-dot {
+    @apply w-2 h-2 rounded-full inline-block;
+  }
+
+  .status-dot-online {
+    @apply status-dot bg-locus-accent shadow-glow-emerald;
+  }
+
+  .status-dot-offline {
+    @apply status-dot bg-locus-muted/40;
+  }
+
+  .status-dot-busy {
+    @apply status-dot bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.5)] animate-pulse;
+  }
+
+  .code-block {
+    @apply bg-[#050608] border border-white/5 rounded-xl p-3.5 font-mono text-xs text-locus-text overflow-x-auto;
+  }
+
+  .section-title {
+    @apply text-[11px] font-semibold text-locus-muted uppercase tracking-wider mb-2.5 flex items-center gap-2;
+  }
+
+  .card {
+    @apply bg-locus-card/90 border border-locus-border/80 rounded-xl p-4 transition-all duration-200;
+  }
+
+  .card-hover {
+    @apply card hover:border-locus-violet/40 hover:shadow-glow-violet hover:-translate-y-0.5;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .animate-pulse-subtle {
+    animation: pulse-subtle 2s ease-in-out infinite;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .animate-scale-up {
+    animation: scale-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.97); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-up {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}

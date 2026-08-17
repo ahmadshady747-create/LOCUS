@@ -1,0 +1,24 @@
+[package]
+name = "locus-network"
+version = "0.1.0"
+edition = "2021"
+description = "Network orchestrator for LOCUS - mDNS discovery and task distribution"
+license = "MIT"
+
+[dependencies]
+locus-core = { path = "../locus-core" }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+mdns-sd = { version = "0.10", features = ["async"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+async-trait = { workspace = true }
+tokio-tungstenite = { workspace = true }
+tokio-stream = { workspace = true }
+futures = { workspace = true }
+num_cpus.workspace = true
+hostname.workspace = true
+if-addrs = "0.10"

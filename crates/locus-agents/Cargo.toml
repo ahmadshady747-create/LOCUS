@@ -1,0 +1,25 @@
+[package]
+name = "locus-agents"
+version = "0.1.0"
+edition = "2021"
+description = "Ephemeral agent manager for LOCUS - spawns isolated sandboxed agents"
+license = "MIT"
+
+[dependencies]
+locus-core = { path = "../locus-core" }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+parking_lot = { workspace = true }
+dashmap = { workspace = true }
+async-trait = { workspace = true }
+serde_yaml = { workspace = true }
+regex = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+nix = { version = "0.29", features = ["resource", "process", "signal"] }
