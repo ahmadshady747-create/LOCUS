@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 480" width="1100" height="480">
+  <defs>
+    <linearGradient id="top-card" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1f242c" />
+      <stop offset="100%" stop-color="#161b22" />
+    </linearGradient>
+    <linearGradient id="crate-card" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#161b22" />
+      <stop offset="100%" stop-color="#0d1117" />
+    </linearGradient>
+    <linearGradient id="bus-glow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#58a6ff" />
+      <stop offset="50%" stop-color="#3fb950" />
+      <stop offset="100%" stop-color="#bc8cff" />
+    </linearGradient>
+    <filter id="card-shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1100" height="480" rx="16" fill="#0d1117" stroke="#30363d" stroke-width="1.5" />
+
+  <!-- Top Central Node: locus-app -->
+  <g transform="translate(375, 30)" filter="url(#card-shadow)">
+    <rect width="350" height="70" rx="12" fill="url(#top-card)" stroke="#58a6ff" stroke-width="2" />
+    <circle cx="28" cy="35" r="14" fill="#1f6feb" opacity="0.2" />
+    <text x="22" y="40" font-family="sans-serif" font-size="16" fill="#58a6ff">👑</text>
+    <text x="52" y="32" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="16" font-weight="800" fill="#f0f6fc">locus-app</text>
+    <text x="140" y="32" font-family="'JetBrains Mono', monospace" font-size="11" fill="#3fb950" font-weight="700">[Tauri v2 + Native Win32 Shell]</text>
+    <text x="52" y="52" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" fill="#8b949e">Resident Spotlight HUD, Global Hotkeys &amp; System Tray Daemon</text>
+  </g>
+
+  <!-- Bus Distribution Lines -->
+  <g stroke="url(#bus-glow)" stroke-width="2" fill="none">
+    <!-- Main Downward Stem -->
+    <line x1="550" y1="100" x2="550" y2="150" />
+    <!-- Horizontal Distribution Bar 1 -->
+    <line x1="125" y1="150" x2="975" y2="150" />
+    <!-- Vertical Connectors to Row 1 -->
+    <line x1="125" y1="150" x2="125" y2="180" />
+    <line x1="337" y1="150" x2="337" y2="180" />
+    <line x1="550" y1="150" x2="550" y2="180" />
+    <line x1="762" y1="150" x2="762" y2="180" />
+    <line x1="975" y1="150" x2="975" y2="180" />
+
+    <!-- Stem to Row 2 -->
+    <line x1="550" y1="150" x2="550" y2="300" />
+    <line x1="230" y1="300" x2="870" y2="300" />
+    <!-- Vertical Connectors to Row 2 -->
+    <line x1="230" y1="300" x2="230" y2="330" />
+    <line x1="445" y1="300" x2="445" y2="330" />
+    <line x1="655" y1="300" x2="655" y2="330" />
+    <line x1="870" y1="300" x2="870" y2="330" />
+  </g>
+
+  <!-- ROW 1 CRATES (5 Cards) -->
+
+  <!-- Crate 1: locus-core -->
+  <g transform="translate(30, 180)" filter="url(#card-shadow)">
+    <rect width="190" height="90" rx="10" fill="url(#crate-card)" stroke="#30363d" stroke-width="1.5" />
+    <text x="14" y="26" font-family="'JetBrains Mono', monospace" font-size="13" font-weight="700" fill="#58a6ff">locus-core</text>
+    <text x="14" y="44" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="600" fill="#3fb950">Sovereign Microkernel</text>
+    <text x="14" y="62" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">6-Invariant Proofs,</text>
+    <text x="14" y="76" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">Win32 Hooks &amp; Sensors</text>
+  </g>
+
+  <!-- Crate 2: locus-fs -->
+  <g transform="translate(242, 180)" filter="url(#card-shadow)">
+    <rect width="190" height="90" rx="10" fill="url(#crate-card)" stroke="#30363d" stroke-width="1.5" />
+    <text x="14" y="26" font-family="'JetBrains Mono', monospace" font-size="13" font-weight="700" fill="#58a6ff">locus-fs</text>
+    <text x="14" y="44" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="600" fill="#3fb950">Atomic Shadow FS</text>
+    <text x="14" y="62" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">Myers Hunk Patcher,</text>
+    <text x="14" y="76" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">30-Level Snapshot Store</text>
+  </g>
+
+  <!-- Crate 3: locus-context -->
+  <g transform="translate(455, 180)" filter="url(#card-shadow)">
+    <rect width="190" height="90" rx="10" fill="url(#crate-card)" stroke="#30363d" stroke-width="1.5" />
+    <text x="14" y="26" font-family="'JetBrains Mono', monospace" font-size="13" font-weight="700" fill="#58a6ff">locus-context</text>
+    <text x="14" y="44" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="600" fill="#3fb950">Hybrid Context Ranker</text>
+    <text x="14" y="62" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">Okapi BM25, Subwords,</text>
+    <text x="14" y="76" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">AST Skeletonizer Graph</text>
+  </g>
+
+  <!-- Crate 4: locus-agents -->
+  <g transform="translate(667, 180)" filter="url(#card-shadow)">
+    <rect width="190" height="90" rx="10" fill="url(#crate-card)" stroke="#30363d" stroke-width="1.5" />
+    <text x="14" y="26" font-family="'JetBrains Mono', monospace" font-size="13" font-weight="700" fill="#58a6ff">locus-agents</text>
+    <text x="14" y="44" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="600" fill="#3fb950">Multi-Agent DAG Engine</text>
+    <text x="14" y="62" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">Process Sandbox,</text>
+    <text x="14" y="76" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">Terminal Error Interceptor</text>
+  </g>
+
+  <!-- Crate 5: locus-llm -->
+  <g transform="translate(880, 180)" filter="url(#card-shadow)">
+    <rect width="190" height="90" rx="10" fill="url(#crate-card)" stroke="#30363d" stroke-width="1.5" />
+    <text x="14" y="26" font-family="'JetBrains Mono', monospace" font-size="13" font-weight="700" fill="#58a6ff">locus-llm</text>
+    <text x="14" y="44" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="600" fill="#3fb950">Cognitive AI Router</text>
+    <text x="14" y="62" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">Hardware Keyring Vault,</text>
+    <text x="14" y="76" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">Local Ollama/LlamaCpp</text>
+  </g>
+
+  <!-- ROW 2 CRATES (4 Cards) -->
+
+  <!-- Crate 6: locus-network -->
+  <g transform="translate(135, 330)" filter="url(#card-shadow)">
+    <rect width="190" height="90" rx="10" fill="url(#crate-card)" stroke="#30363d" stroke-width="1.5" />
+    <text x="14" y="26" font-family="'JetBrains Mono', monospace" font-size="13" font-weight="700" fill="#58a6ff">locus-network</text>
+    <text x="14" y="44" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="600" fill="#3fb950">P2P Mesh &amp; Air-Gap</text>
+    <text x="14" y="62" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">mDNS Discovery,</text>
+    <text x="14" y="76" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">Optical QR Stream Codec</text>
+  </g>
+
+  <!-- Crate 7: locus-plugins -->
+  <g transform="translate(350, 330)" filter="url(#card-shadow)">
+    <rect width="190" height="90" rx="10" fill="url(#crate-card)" stroke="#30363d" stroke-width="1.5" />
+    <text x="14" y="26" font-family="'JetBrains Mono', monospace" font-size="13" font-weight="700" fill="#58a6ff">locus-plugins</text>
+    <text x="14" y="44" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="600" fill="#3fb950">Hot-Pluggable Slots</text>
+    <text x="14" y="62" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">Git-based Registry,</text>
+    <text x="14" y="76" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">Circuit Breaker Guards</text>
+  </g>
+
+  <!-- Crate 8: locus-research -->
+  <g transform="translate(560, 330)" filter="url(#card-shadow)">
+    <rect width="190" height="90" rx="10" fill="url(#crate-card)" stroke="#30363d" stroke-width="1.5" />
+    <text x="14" y="26" font-family="'JetBrains Mono', monospace" font-size="13" font-weight="700" fill="#58a6ff">locus-research</text>
+    <text x="14" y="44" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="600" fill="#3fb950">Offline Doc Intelligence</text>
+    <text x="14" y="62" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">crates.io/npm/PyPI,</text>
+    <text x="14" y="76" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">Dense Markdown Extract</text>
+  </g>
+
+  <!-- Crate 9: locus-templates -->
+  <g transform="translate(775, 330)" filter="url(#card-shadow)">
+    <rect width="190" height="90" rx="10" fill="url(#crate-card)" stroke="#30363d" stroke-width="1.5" />
+    <text x="14" y="26" font-family="'JetBrains Mono', monospace" font-size="13" font-weight="700" fill="#58a6ff">locus-templates</text>
+    <text x="14" y="44" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="600" fill="#3fb950">Procedural Synthesis</text>
+    <text x="14" y="62" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">Zero-Latency Scaffolding,</text>
+    <text x="14" y="76" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="9.5" fill="#8b949e">Pre-Verified Patterns</text>
+  </g>
+</svg>
