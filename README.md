@@ -94,16 +94,16 @@ graph TD
 ```
 
 ### 📂 Crates Manifest:
-* [`crates/locus-core`](file:///d:/LOCUS/crates/locus-core): Sovereign microkernel, native Win32 window/clipboard guardians, chaos simulator, and verification bridge.
-* [`crates/locus-fs`](file:///d:/LOCUS/crates/locus-fs): Atomic shadow filesystem (`.tmp_locus`), Myers hunk patcher, and 30-level historical snapshot store.
-* [`crates/locus-context`](file:///d:/LOCUS/crates/locus-context): Subword vectorizer, Okapi BM25 hybrid ranking, AST skeletonizer, and symbol dependency graph.
-* [`crates/locus-agents`](file:///d:/LOCUS/crates/locus-agents): Sandboxed DAG orchestrator, terminal error interception, and background task scheduler.
-* [`crates/locus-llm`](file:///d:/LOCUS/crates/locus-llm): Cognitive model router, OS-keyring credential vault, and local hardware capability probe.
-* [`crates/locus-network`](file:///d:/LOCUS/crates/locus-network): Decentralized P2P mesh discovery (mDNS), multi-device load balancer, and visual Air-Gap QR codec.
-* [`crates/locus-plugins`](file:///d:/LOCUS/crates/locus-plugins): Dynamic hot-pluggable plugin registry with triple-failure circuit breakers.
-* [`crates/locus-research`](file:///d:/LOCUS/crates/locus-research): Offline registry resolver (crates.io, npm, PyPI) and dense documentation extractor.
-* [`crates/locus-templates`](file:///d:/LOCUS/crates/locus-templates): Fast procedural template engine for instant code synthesis.
-* [`src-tauri`](file:///d:/LOCUS/src-tauri): Native Tauri v2 shell, spotlight overlay, and system tray ambient background service.
+* [`crates/locus-core`](crates/locus-core): Sovereign microkernel, native Win32 window/clipboard guardians, chaos simulator, and verification bridge.
+* [`crates/locus-fs`](crates/locus-fs): Atomic shadow filesystem (`.tmp_locus`), Myers hunk patcher, and 30-level historical snapshot store.
+* [`crates/locus-context`](crates/locus-context): Subword vectorizer, Okapi BM25 hybrid ranking, AST skeletonizer, and symbol dependency graph.
+* [`crates/locus-agents`](crates/locus-agents): Sandboxed DAG orchestrator, terminal error interception, and background task scheduler.
+* [`crates/locus-llm`](crates/locus-llm): Cognitive model router, OS-keyring credential vault, and local hardware capability probe.
+* [`crates/locus-network`](crates/locus-network): Decentralized P2P mesh discovery (mDNS), multi-device load balancer, and visual Air-Gap QR codec.
+* [`crates/locus-plugins`](crates/locus-plugins): Dynamic hot-pluggable plugin registry with triple-failure circuit breakers.
+* [`crates/locus-research`](crates/locus-research): Offline registry resolver (crates.io, npm, PyPI) and dense documentation extractor.
+* [`crates/locus-templates`](crates/locus-templates): Fast procedural template engine for instant code synthesis.
+* [`src-tauri`](src-tauri): Native Tauri v2 shell, spotlight overlay, and system tray ambient background service.
 
 ---
 
@@ -161,7 +161,7 @@ git push origin v0.1.0
 
 ## 📄 License
 
-This project is licensed under the **GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)**. See the [`LICENSE`](file:///d:/LOCUS/LICENSE) file for full details.
+This project is licensed under the **GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)**. See the [`LICENSE`](LICENSE) file for full details.
 
 ---
 
