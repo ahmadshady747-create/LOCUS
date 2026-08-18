@@ -14,6 +14,7 @@
       {
         "label": "main",
         "title": "LOCUS",
+        "url": "index.html",
         "width": 1280,
         "height": 800,
         "minWidth": 960,
@@ -58,7 +59,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdGNDYxQkNGQjQwOTZBOEYKUldTUGFnbTB6eHRHZjdZMXlFVEUvVlRhcEh4MUJWRFRodlJJNENzNXQ4b2NUaGdMM01LTDhGQ3YK",
       "endpoints": [
-        "https://github.com/locus-ai/LOCUS/releases/latest/download/latest.json"
+        "https://github.com/ahmadshady747-create/LOCUS/releases/latest/download/latest.json"
       ]
     }
   }
