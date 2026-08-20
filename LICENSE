@@ -8,10 +8,11 @@ Parameters:
 - Change License: Apache License, Version 2.0
 - Additional Use Grant:
   Use of the software in source and binary forms is free for individual developers, 
-  students, educational use, non-commercial open-source projects, and organizations 
-  with fewer than 10 developers or less than $1,000,000 USD in annual gross revenue.
+  students, educational use, non-commercial open-source projects, and small teams 
+  with fewer than 5 developers.
   
   Any production deployment, internal seat usage, or commercial SaaS/OEM integration 
-  within organizations exceeding these thresholds requires a paid commercial license.
+  within organizations with 5 or more developers requires a paid commercial license 
+  priced at $150 USD per developer seat per year.
 
-Contact for Enterprise Licensing: licensing@locus.dev
+Contact for Enterprise & Seat Licensing: licensing@locus.dev
