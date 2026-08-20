@@ -196,6 +196,8 @@ fn main() {
 | **Internal Commercial Seat** | Internal usage & CI/CD within organizations with **5+ developers** *(Internal use only; no re-selling/SaaS)*. | **$150 USD / seat / year** |
 | **Commercial SaaS & Cloud OEM** | Embedding, hosting, or offering locus-engine as a commercial SaaS, cloud API, or OEM product. | **$10,000 USD / year** |
 
+> **Note (As-Is / Self-Service):** The software is provided "AS IS" on a self-service basis without warranties. SLA guarantees and dedicated support are subject to separate enterprise contracts.
+
 For license activation and commercial contracts: Contact the author below or email `licensing@locus.dev`.
 
 ---
