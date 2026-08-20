@@ -75,4 +75,12 @@ fn main() {
 
 ## 📄 License & Commercial Seat Terms
 
-Published under the [Business Source License 1.1 (BSL 1.1)](LICENSE). Free for individuals, students, non-commercial use, and teams with fewer than 5 developers. Organizations with 5+ developers require a commercial seat license ($150 USD/seat/year). Contact: `licensing@locus.dev`.
+Published under the [Business Source License 1.1 (BSL 1.1)](LICENSE). Free for individuals, students, non-commercial use, and teams with fewer than 5 developers. Organizations with 5 or more developers require a paid commercial license priced at $150 USD per developer seat per year. Contact: `licensing@locus.dev`.
+
+---
+
+## 👨‍💻 Author & Maintainer
+
+**Ahmed Shadi**  
+- **GitHub:** [@ahmadshady747-create](https://github.com/ahmadshady747-create)  
+- *Core Architect of LOCUS Engine.*
