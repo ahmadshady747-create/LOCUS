@@ -7,12 +7,20 @@ Parameters:
 - Change Date: 2029-01-01
 - Change License: Apache License, Version 2.0
 - Additional Use Grant:
-  Use of the software in source and binary forms is free for individual developers, 
-  students, educational use, non-commercial open-source projects, and small teams 
-  with fewer than 5 developers.
+  1. Free Tier:
+     Use of the software in source and binary forms is free for individual developers, 
+     students, educational use, non-commercial open-source projects, and small teams 
+     with fewer than 5 developers.
   
-  Any production deployment, internal seat usage, or commercial SaaS/OEM integration 
-  within organizations with 5 or more developers requires a paid commercial license 
-  priced at $150 USD per developer seat per year.
+  2. Internal Commercial Seat License ($150 USD / developer seat / year):
+     Internal organizational usage, CI/CD pipeline integration, or in-house tooling 
+     within organizations with 5 or more developers requires an internal seat license. 
+     This license grants internal developer use only and does NOT permit offering the 
+     engine as a commercial SaaS, cloud API, or re-sold service.
 
-Contact for Enterprise & Seat Licensing: licensing@locus.dev
+  3. Commercial SaaS & Cloud OEM License ($10,000 USD / year):
+     Embedding, hosting, or offering locus-engine as a hosted cloud service, commercial 
+     SaaS, cloud API, or white-labeled commercial product requires a dedicated 
+     Commercial SaaS & Cloud OEM License.
+
+Contact for Licensing & Inquiries: licensing@locus.dev
