@@ -31,6 +31,8 @@ Modern AI code generation agents and automated pipelines face two systemic engin
 
 ## 🚀 CLI Usage
 
+Download standalone binaries from [Releases](https://github.com/ahmadshady747-create/LOCUS/releases).
+
 ```bash
 # 1. Deterministic Safety Verification (<0.05ms)
 locus check src/lib.rs
@@ -71,6 +73,6 @@ fn main() {
 
 ---
 
-## 📄 License
+## 📄 License & Commercial Seat Terms
 
-Published under the [Business Source License 1.1 (BSL 1.1)](LICENSE). Free for individuals, students, non-commercial use, and teams with fewer than 10 developers or <$1M revenue.
+Published under the [Business Source License 1.1 (BSL 1.1)](LICENSE). Free for individuals, students, non-commercial use, and teams with fewer than 5 developers. Organizations with 5+ developers require a commercial seat license ($150 USD/seat/year). Contact: `licensing@locus.dev`.
