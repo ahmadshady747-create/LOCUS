@@ -186,11 +186,17 @@ fn main() {
 
 ---
 
-## 📄 License & Commercial Seat Terms
+## 📄 Licensing & Commercial Tiers
 
-Published under the [Business Source License 1.1 (BSL 1.1)](LICENSE). Free for individuals, students, non-commercial use, and teams with fewer than 5 developers. Organizations with 5 or more developers require a paid commercial license priced at $150 USD per developer seat per year.
+`locus-engine` is published under the [Business Source License 1.1 (BSL 1.1)](LICENSE):
 
-For licensing inquiries and seat activation: Contact the author below.
+| License Tier | Target Audience / Scope | Pricing |
+| :--- | :--- | :---: |
+| **Free Tier** | Individuals, students, open-source projects, and teams with **< 5 developers**. | **$0 (Free)** |
+| **Internal Commercial Seat** | Internal usage & CI/CD within organizations with **5+ developers** *(Internal use only; no re-selling/SaaS)*. | **$150 USD / seat / year** |
+| **Commercial SaaS & Cloud OEM** | Embedding, hosting, or offering locus-engine as a commercial SaaS, cloud API, or OEM product. | **$10,000 USD / year** |
+
+For license activation and commercial contracts: Contact the author below or email `licensing@locus.dev`.
 
 ---
 
