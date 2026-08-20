@@ -3,6 +3,7 @@
 > **Deterministic AST Safety Guard, Polyglot Semantic Symbol Graph, and Surgical Byte-Span Patching Engine in Pure Rust.**
 
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
+[![Crates.io](https://img.shields.io/crates/v/locus-engine.svg?color=orange)](https://crates.io/crates/locus-engine)
 [![Tests: 20/20 Passing](https://img.shields.io/badge/Tests-20%2F20%20Passing-brightgreen.svg)](Cargo.toml)
 [![Memory Safety: Zero Unsafe](https://img.shields.io/badge/Memory%20Safety-Zero%20Unsafe-success.svg)](src/)
 [![Latency: <0.05ms](https://img.shields.io/badge/Verification-Sub--0.05ms-purple.svg)](src/guard.rs)
@@ -17,6 +18,36 @@ Modern AI code generation agents and automated pipelines face two systemic engin
 2. **Context Window Inflation:** Passing full source files repeatedly into LLM contexts wastes up to 80% of token budgets.
 
 **`locus-engine`** solves both challenges as a **standalone, zero-bloat, high-performance systems engine** written in 100% safe Rust. It enforces deterministic, non-negotiable safety invariants in microseconds and extracts cross-file symbol graphs with minimal context footprints.
+
+---
+
+## 📺 Live Terminal Verification Demo
+
+```text
+$ locus check src/async_task.rs
+
++-------------------------------------------------------------+
+|                  LOCUS AST GUARD VERIFICATION               |
++-------------------------------------------------------------+
+ Target File: src/async_task.rs
+ Verified Latency: 0.0194 ms
+ Status: [FAIL] Invariant Violation Detected
+ Violation Kind: ASYNC_MUTEX_DEADLOCK
+ Violation Detail: std::sync::Mutex used in async context with .await — use tokio::sync::Mutex instead.
++-------------------------------------------------------------+
+
+$ locus graph src/
+
++-------------------------------------------------------------+
+|                   LOCUS SYMBOL GRAPH INDEX                  |
++-------------------------------------------------------------+
+ Indexed Root: src/
+ Total Indexed Files: 7
+ Extracted AST Symbols: 24
+ Token Savings via AST Skeleton: 74.8%
+ Indexing Latency: 4.82 ms
++-------------------------------------------------------------+
+```
 
 ---
 
@@ -71,15 +102,6 @@ flowchart TD
 
 ---
 
-## 🏛️ Core Architectural Pillars
-
-- **🛡️ AstGuard:** 6-Pass Deterministic Safety Invariants (<0.05ms) covering delimiter balance, async mutex across await, division-by-zero, array bounds, unsafe unwraps, ReDoS, and deep null dereference.
-- **🧠 SymbolGraph:** Polyglot AST symbol indexer and cross-file dependency graph across Rust, TypeScript, JavaScript, and Python.
-- **⚡ AstContextCache:** High-speed in-memory LRU cache keyed by pure Rust FIPS 180-4 standard SHA-256 (Zero external crypto dependencies).
-- **✂️ AstDiffEngine:** Surgical byte-span AST patching and structural skeletonization for context compression (>50-80% token savings).
-
----
-
 ## 🛡️ The 6 Deterministic Safety Invariants
 
 ```mermaid
@@ -101,9 +123,28 @@ graph LR
 
 ---
 
-## 🚀 CLI Usage
+## 🚀 Quick Install & CLI Usage
 
-Download standalone binaries from [Releases](https://github.com/ahmadshady747-create/LOCUS/releases).
+### Instant One-Line Installation
+
+#### 🐧 Linux & 🍏 macOS:
+```bash
+curl -fsSL https://raw.githubusercontent.com/ahmadshady747-create/LOCUS/main/scripts/install.sh | bash
+```
+
+#### 🪟 Windows (PowerShell):
+```powershell
+irm https://raw.githubusercontent.com/ahmadshady747-create/LOCUS/main/scripts/install.ps1 | iex
+```
+
+#### 📦 Via Cargo (crates.io):
+```bash
+cargo install locus-engine
+```
+
+---
+
+### Command Line Reference
 
 ```bash
 # 1. Deterministic Safety Verification (<0.05ms)
@@ -124,7 +165,7 @@ Add `locus-engine` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-locus-engine = { path = "../locus-engine" }
+locus-engine = "0.1.0"
 ```
 
 ```rust
@@ -147,12 +188,16 @@ fn main() {
 
 ## 📄 License & Commercial Seat Terms
 
-Published under the [Business Source License 1.1 (BSL 1.1)](LICENSE). Free for individuals, students, non-commercial use, and teams with fewer than 5 developers. Organizations with 5 or more developers require a paid commercial license priced at $150 USD per developer seat per year. Contact: `licensing@locus.dev`.
+Published under the [Business Source License 1.1 (BSL 1.1)](LICENSE). Free for individuals, students, non-commercial use, and teams with fewer than 5 developers. Organizations with 5 or more developers require a paid commercial license priced at $150 USD per developer seat per year.
+
+For licensing inquiries and seat activation: Contact the author below.
 
 ---
 
-## 👨‍💻 Author & Maintainer
+## 👤 Author & Direct Connect
 
-**Ahmed Shadi**  
-- **GitHub:** [@ahmadshady747-create](https://github.com/ahmadshady747-create)  
-- *Core Architect of LOCUS Engine.*
+Architected & built independently by **Ahmed Shadi** (Libya 🇱🇾).
+
+- 📘 **Facebook:** [Ahmed Shadi Profile](https://www.facebook.com/share/1DZibmYSrx/)
+- 🐙 **GitHub:** [@ahmadshady747-create](https://github.com/ahmadshady747-create)
+- 📧 **Direct Inquiries:** Via GitHub Issues & Discussions
