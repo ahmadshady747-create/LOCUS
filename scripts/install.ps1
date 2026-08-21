@@ -1,21 +1,21 @@
 ﻿$ErrorActionPreference = 'Stop'
-$Repo = "ahmadshady747-create/LOCUS"
-$Url = "https://github.com/$Repo/releases/latest/download/locus.exe"
-$InstallDir = "$env:LOCALAPPDATA\Programs\locus"
+$repo = "ahmadshady747-create/LOCUS"
+$installDir = "$env:LOCALAPPDATA\Programs\locus"
 
-if (!(Test-Path $InstallDir)) {
-    New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+Write-Host "==> Fetching latest release of LOCUS Engine for Windows (x86_64)..." -ForegroundColor Cyan
+New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+
+$downloadUrl = "https://github.com/$repo/releases/latest/download/locus.exe"
+$destPath = Join-Path $installDir "locus.exe"
+
+Invoke-WebRequest -Uri $downloadUrl -OutFile $destPath
+
+# Add to User PATH if not already present
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($userPath -notlike "*$installDir*") {
+    [Environment]::SetEnvironmentVariable("Path", "$userPath;$installDir", "User")
+    $env:Path += ";$installDir"
 }
 
-$Dest = Join-Path $InstallDir "locus.exe"
-Write-Host "⚡ Downloading locus-engine binary..." -ForegroundColor Cyan
-Invoke-WebRequest -Uri $Url -OutFile $Dest
-
-$UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
-if ($UserPath -notlike "*$InstallDir*") {
-    [Environment]::SetEnvironmentVariable("Path", "$UserPath;$InstallDir", "User")
-    Write-Host "✅ Added $InstallDir to user PATH environment variable." -ForegroundColor Green
-}
-
-Write-Host "✅ locus-engine successfully installed to $Dest" -ForegroundColor Green
-Write-Host "Restart your terminal or run: & '$Dest' --help" -ForegroundColor Yellow
+Write-Host "==> LOCUS Engine successfully installed to $destPath" -ForegroundColor Green
+Write-Host "==> Run 'locus check <file>' or 'locus mcp' to get started!" -ForegroundColor Green
