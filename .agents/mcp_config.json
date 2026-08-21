@@ -1,0 +1,10 @@
+{
+    "mcpServers":  {
+                       "locus":  {
+                                     "args":  [
+                                                  "mcp"
+                                              ],
+                                     "command":  "C:\\Users\\awsat\\AppData\\Local\\Programs\\locus\\locus.exe"
+                                 }
+                   }
+}
