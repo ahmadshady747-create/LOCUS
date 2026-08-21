@@ -1,0 +1,8 @@
+﻿*.rs linguist-language=Rust
+*.ps1 linguist-language=PowerShell
+*.sh linguist-language=Shell
+Cargo.toml linguist-language=TOML
+LICENSE linguist-documentation=true
+README.md linguist-documentation=true
+SPEC.md linguist-documentation=true
+
