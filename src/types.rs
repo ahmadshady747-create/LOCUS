@@ -266,6 +266,23 @@ impl Language {
     }
 }
 
+impl std::fmt::Display for Language {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Language::Rust => write!(f, "rust"),
+            Language::TypeScript => write!(f, "typescript"),
+            Language::JavaScript => write!(f, "javascript"),
+            Language::Tsx => write!(f, "tsx"),
+            Language::Jsx => write!(f, "jsx"),
+            Language::Svelte => write!(f, "svelte"),
+            Language::Astro => write!(f, "astro"),
+            Language::Vue => write!(f, "vue"),
+            Language::Python => write!(f, "python"),
+            Language::Unknown => write!(f, "unknown"),
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Hashing Utility
 // ---------------------------------------------------------------------------

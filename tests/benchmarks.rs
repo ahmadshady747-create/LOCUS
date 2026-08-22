@@ -585,3 +585,74 @@ fn bench_circular_dependency_detection() {
     );
     assert!(avg_us < 1000.0, "Cycle detection took too long: {:.2}µs", avg_us);
 }
+
+#[test]
+fn bench_compound_prepare_context_pipeline() {
+    let req = r#"{
+        "jsonrpc": "2.0",
+        "id": 100,
+        "method": "tools/call",
+        "params": {
+            "name": "prepare_context",
+            "arguments": {
+                "target_file": "src/lib.rs"
+            }
+        }
+    }"#;
+
+    let start = Instant::now();
+    let iterations = 500;
+
+    for _ in 0..iterations {
+        let resp = locus_engine::mcp::handle_json_rpc_message(req).expect("Response expected");
+        assert!(resp.contains("file_skeleton"));
+    }
+
+    let elapsed = start.elapsed();
+    let avg_us = (elapsed.as_secs_f64() * 1_000_000.0) / (iterations as f64);
+
+    println!(
+        "⚡ Compound prepare_context Pipeline Benchmark: {} runs in {:.3}ms (Average: {:.2}µs / compound pass)",
+        iterations,
+        elapsed.as_secs_f64() * 1000.0,
+        avg_us
+    );
+    assert!(avg_us < 2000.0, "Compound prepare_context took too long: {:.2}µs", avg_us);
+}
+
+#[test]
+fn bench_compound_verified_patch_pipeline() {
+    let req = r#"{
+        "jsonrpc": "2.0",
+        "id": 101,
+        "method": "tools/call",
+        "params": {
+            "name": "verified_patch",
+            "arguments": {
+                "file_path": "src/diff.rs",
+                "symbol": "AstDiffEngine",
+                "new_code": "pub struct AstDiffEngine;",
+                "dry_run": true
+            }
+        }
+    }"#;
+
+    let start = Instant::now();
+    let iterations = 200;
+
+    for _ in 0..iterations {
+        let resp = locus_engine::mcp::handle_json_rpc_message(req).expect("Response expected");
+        assert!(resp.contains("Surgically replaced"));
+    }
+
+    let elapsed = start.elapsed();
+    let avg_us = (elapsed.as_secs_f64() * 1_000_000.0) / (iterations as f64);
+
+    println!(
+        "🛡️ Compound verified_patch Pipeline Benchmark: {} atomic runs in {:.3}ms (Average: {:.2}µs / atomic patch)",
+        iterations,
+        elapsed.as_secs_f64() * 1000.0,
+        avg_us
+    );
+    assert!(avg_us < 2000.0, "Compound verified_patch took too long: {:.2}µs", avg_us);
+}
