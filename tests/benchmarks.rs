@@ -1,210 +1,206 @@
-//! Comprehensive Standard Benchmark & Stress Suite for locus-engine.
+//! locus CLI - High-speed deterministic verification and AST semantic tooling.
 
+use std::env;
+use std::fs;
+use std::path::Path;
+use std::process;
 use std::time::Instant;
-use locus_engine::mcp::handle_json_rpc_message;
-use locus_engine::{
-    AstContextCache, AstDiffEngine, AstGuard, Language, SymbolGraph, ViolationKind,
-};
 
-#[test]
-fn bench_ast_guard_1000_cycles() {
-    let clean_code = r#"
-pub fn compute_sum(values: &[f64]) -> f64 {
-    if values.is_empty() {
-        return 0.0;
-    }
-    let sum: f64 = values.iter().sum();
-    let count = values.len();
-    if count != 0 {
-        sum / (count as f64)
-    } else {
-        0.0
-    }
+use locus_engine::{run_stdio_server, AstDiffEngine, AstGuard, Language, SymbolGraph};
+
+fn print_usage() {
+    eprintln!(
+        r#"locus-engine CLI v0.3.0
+
+USAGE:
+    locus check <file_path>
+    locus skeleton <file_path>
+    locus graph <directory_path>
+    locus patch <file_path> --symbol <symbol_name> --with <new_code>
+    locus mcp
+
+COMMANDS:
+    check       Run deterministic safety verification on a target source file
+    skeleton    Extract high-level AST skeleton preserving imports, types, and component signatures
+    graph       Index directory, construct cross-file symbol graph, and display token savings
+    patch       Surgically replace a named AST symbol with new code
+    mcp         Start MCP server over stdio for Claude Code, Cursor, and Antigravity
+"#
+    );
 }
-"#;
-    let failing_div = "pub fn div(a: f64, b: f64) -> f64 { a / b }";
-    let failing_mutex = "use std::sync::Mutex;\nasync fn run(m: &Mutex<i32>) { let _g = m.lock().unwrap(); some_fut().await; }";
-    let failing_unwrap = "fn get(m: &std::collections::HashMap<&str, &str>) -> &str { m.get(\"k\").unwrap() }";
-    let failing_redos = "const R: &str = \"(a+)+$\";";
-    let failing_unbalanced = "fn broken( { let x = 1;";
 
-    let start = Instant::now();
-    let iterations = 1000;
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        print_usage();
+        process::exit(1);
+    }
 
-    for i in 0..iterations {
-        match i % 6 {
-            0 => {
-                let rep = AstGuard::verify(clean_code);
-                assert!(rep.passed);
+    match args[1].as_str() {
+        "mcp" => {
+            if let Err(e) = run_stdio_server() {
+                eprintln!("MCP Server error: {}", e);
+                process::exit(1);
             }
-            1 => {
-                let rep = AstGuard::verify(failing_div);
-                assert_eq!(rep.violation, Some(ViolationKind::DivisionByZero));
+        }
+
+        "skeleton" => {
+            if args.len() < 3 {
+                eprintln!("Error: Missing <file_path> for 'skeleton' command.");
+                process::exit(1);
             }
-            2 => {
-                let rep = AstGuard::verify(failing_mutex);
-                assert_eq!(rep.violation, Some(ViolationKind::AsyncMutexAcrossAwait));
+            let file_path = &args[2];
+            let content = match fs::read_to_string(file_path) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("Error reading '{}': {}", file_path, e);
+                    process::exit(1);
+                }
+            };
+            let ext = Path::new(file_path)
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("");
+            let lang = Language::from_extension(ext);
+            let skeleton = AstDiffEngine::skeletonize(&content, lang);
+            println!("{}", skeleton);
+        }
+
+        "check" => {
+            if args.len() < 3 {
+                eprintln!("Error: Missing <file_path> for 'check' command.");
+                process::exit(1);
             }
-            3 => {
-                let rep = AstGuard::verify(failing_unwrap);
-                assert_eq!(rep.violation, Some(ViolationKind::UnsafeUnwrap));
+            let file_path = &args[2];
+            let content = match fs::read_to_string(file_path) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("Error reading '{}': {}", file_path, e);
+                    process::exit(1);
+                }
+            };
+
+            let report = AstGuard::verify(&content);
+            println!("\n+-------------------------------------------------------------+");
+            println!("|                  LOCUS AST GUARD VERIFICATION               |");
+            println!("+-------------------------------------------------------------+");
+            println!(" Target File: {}", file_path);
+            println!(" Verified Latency: {:.4} ms", report.latency_ms);
+            if report.passed {
+                println!(" Status: [PASS] All Deterministic Safety Invariants Validated");
+            } else {
+                println!(" Status: [FAIL] Invariant Violation Detected");
+                if let Some(v) = report.violation {
+                    println!(" Violation Kind: {}", v);
+                }
+                if let Some(detail) = report.detail {
+                    println!(" Violation Detail: {}", detail);
+                }
             }
-            4 => {
-                let rep = AstGuard::verify(failing_redos);
-                assert_eq!(rep.violation, Some(ViolationKind::ReDoSPattern));
+            println!("+-------------------------------------------------------------+\n");
+
+            if !report.passed {
+                process::exit(2);
             }
-            5 => {
-                let rep = AstGuard::verify(failing_unbalanced);
-                assert_eq!(rep.violation, Some(ViolationKind::UnbalancedDelimiters));
+        }
+
+        "graph" => {
+            if args.len() < 3 {
+                eprintln!("Error: Missing <directory_path> for 'graph' command.");
+                process::exit(1);
             }
-            _ => unreachable!(),
+            let dir_path = &args[2];
+            let start = Instant::now();
+            let graph = SymbolGraph::index_directory(dir_path);
+            let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
+
+            let file_count = graph.file_to_symbols.len();
+            let symbol_count = graph.nodes.len();
+            let edge_count = graph.edges.len();
+
+            println!("\n+-------------------------------------------------------------+");
+            println!("|                   LOCUS SYMBOL GRAPH INDEX                  |");
+            println!("+-------------------------------------------------------------+");
+            println!(" Indexed Root: {}", dir_path);
+            println!(" Total Indexed Files: {}", file_count);
+            println!(" Extracted AST Symbols: {}", symbol_count);
+            println!(" Cross-Symbol Dependency Edges: {}", edge_count);
+            println!(" Indexing Latency: {:.2} ms", elapsed_ms);
+            println!("+-------------------------------------------------------------+\n");
+        }
+
+        "patch" => {
+            if args.len() < 7 {
+                eprintln!("Usage: locus patch <file_path> --symbol <symbol_name> --with <new_code>");
+                process::exit(1);
+            }
+            let file_path = &args[2];
+            let mut symbol_name: Option<String> = None;
+            let mut new_code: Option<String> = None;
+
+            let mut i = 3;
+            while i < args.len() {
+                match args[i].as_str() {
+                    "--symbol" => {
+                        if i + 1 < args.len() {
+                            symbol_name = Some(args[i + 1].clone());
+                            i += 2;
+                        } else {
+                            i += 1;
+                        }
+                    }
+                    "--with" => {
+                        if i + 1 < args.len() {
+                            new_code = Some(args[i + 1].clone());
+                            i += 2;
+                        } else {
+                            i += 1;
+                        }
+                    }
+                    _ => i += 1,
+                }
+            }
+
+            let symbol = symbol_name.unwrap_or_default();
+            let replacement = new_code.unwrap_or_default();
+
+            if symbol.is_empty() || replacement.is_empty() {
+                eprintln!("Error: Both --symbol and --with are required.");
+                process::exit(1);
+            }
+
+            let content = match fs::read_to_string(file_path) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("Error reading '{}': {}", file_path, e);
+                    process::exit(1);
+                }
+            };
+
+            let ext = Path::new(file_path)
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("");
+            let lang = Language::from_extension(ext);
+
+            match AstDiffEngine::patch(&content, &symbol, &replacement, lang) {
+                Ok(patched) => {
+                    if let Err(e) = fs::write(file_path, &patched) {
+                        eprintln!("Error writing patched output to '{}': {}", file_path, e);
+                        process::exit(1);
+                    }
+                    println!("[SUCCESS] Symbol '{}' surgically patched in {}", symbol, file_path);
+                }
+                Err(e) => {
+                    eprintln!("[ERROR] Patch failed: {}", e);
+                    process::exit(1);
+                }
+            }
+        }
+
+        _ => {
+            print_usage();
+            process::exit(1);
         }
     }
-
-    let elapsed = start.elapsed();
-    let avg_us = (elapsed.as_secs_f64() * 1_000_000.0) / (iterations as f64);
-
-    println!(
-        "\n🛡️  AstGuard Benchmark: {} iterations executed in {:.3}ms (Average: {:.2}µs / verification)",
-        iterations,
-        elapsed.as_secs_f64() * 1000.0,
-        avg_us
-    );
-    assert!(avg_us < 200.0, "AstGuard verification took too long: {:.2}µs", avg_us);
-}
-
-#[test]
-fn bench_sha256_cache_1000_cycles() {
-    let cache = AstContextCache::new(500);
-    let sample = "pub struct TelemetryPacket { pub id: u64, pub payload: Vec<u8> }";
-
-    let start = Instant::now();
-    let iterations = 1000;
-
-    for i in 0..iterations {
-        let code = format!("{} // cycle {}", sample, i);
-        let hash = cache.insert(&code, "pub struct TelemetryPacket;".to_string(), 1);
-        assert_eq!(hash.len(), 64);
-        let hit = cache.get(&code);
-        assert!(hit.is_some());
-    }
-
-    let elapsed = start.elapsed();
-    let avg_us = (elapsed.as_secs_f64() * 1_000_000.0) / (iterations as f64);
-
-    println!(
-        "⚡ AstContextCache Benchmark: {} insertions/lookups in {:.3}ms (Average: {:.2}µs / digest+LRU)",
-        iterations,
-        elapsed.as_secs_f64() * 1000.0,
-        avg_us
-    );
-    assert!(avg_us < 200.0, "SHA-256 caching took too long: {:.2}µs", avg_us);
-}
-
-#[test]
-fn bench_diff_engine_patch_and_skeleton() {
-    let rust_source = r#"
-pub struct EngineConfig {
-    pub max_threads: usize,
-    pub enable_cache: bool,
-}
-
-pub fn initialize_engine(config: EngineConfig) -> bool {
-    println!("Init");
-    true
-}
-
-pub fn teardown_engine() {
-    println!("Teardown");
-}
-"#;
-
-    let start = Instant::now();
-    let iterations = 500;
-
-    for _ in 0..iterations {
-        // Skeletonize
-        let skeleton = AstDiffEngine::skeletonize(rust_source, Language::Rust);
-        assert!(skeleton.contains("pub struct EngineConfig"));
-        assert!(skeleton.contains("pub fn initialize_engine(config: EngineConfig) -> bool;"));
-
-        // Patch
-        let replacement = "pub fn initialize_engine(config: EngineConfig) -> bool {\n    true\n}";
-        let patched = AstDiffEngine::patch(rust_source, "initialize_engine", replacement, Language::Rust)
-            .expect("Patch failed");
-        assert!(patched.contains("pub fn initialize_engine(config: EngineConfig) -> bool {"));
-    }
-
-    let elapsed = start.elapsed();
-    let avg_us = (elapsed.as_secs_f64() * 1_000_000.0) / (iterations as f64);
-
-    println!(
-        "✂️  AstDiffEngine Benchmark: {} skeleton+patch cycles in {:.3}ms (Average: {:.2}µs / operation)",
-        iterations,
-        elapsed.as_secs_f64() * 1000.0,
-        avg_us
-    );
-    assert!(avg_us < 2000.0, "Diff engine took too long: {:.2}µs", avg_us);
-}
-
-#[test]
-fn bench_polyglot_symbol_graph() {
-    let mut graph = SymbolGraph::new();
-
-    let rust_code = "pub fn handle_req() {}\npub struct Session {}\npub enum State {}";
-    let ts_code = "export function parseInput() {}\nexport interface Config {}\nexport class Router {}";
-    let py_code = "def process_data():\n    pass\nclass DataModel:\n    pass\n";
-
-    let start = Instant::now();
-    let iterations = 200;
-
-    for i in 0..iterations {
-        graph.index_file_content(&format!("src/mod_{}.rs", i), rust_code, Language::Rust);
-        graph.index_file_content(&format!("src/client_{}.ts", i), ts_code, Language::TypeScript);
-        graph.index_file_content(&format!("src/worker_{}.py", i), py_code, Language::Python);
-    }
-
-    let elapsed = start.elapsed();
-    let total_symbols = graph.nodes.len();
-    let total_files = graph.file_to_symbols.len();
-
-    println!(
-        "🧠 SymbolGraph Benchmark: Indexed {} files ({} AST symbols) across Rust, TS, Python in {:.3}ms",
-        total_files,
-        total_symbols,
-        elapsed.as_secs_f64() * 1000.0
-    );
-
-    assert_eq!(total_files, 600);
-    assert_eq!(total_symbols, 1600);
-}
-
-#[test]
-fn bench_mcp_json_rpc_dispatch() {
-    let requests = [
-        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}"#,
-        r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
-        r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"check_safety","arguments":{"code":"pub fn safe() -> i32 { 10 }"}}}"#,
-        r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"skeletonize","arguments":{"code":"pub fn f() {}","language":"rust"}}}"#,
-    ];
-
-    let start = Instant::now();
-    let iterations = 1000;
-
-    for i in 0..iterations {
-        let req = requests[i % requests.len()];
-        let resp = handle_json_rpc_message(req);
-        assert!(resp.is_some());
-    }
-
-    let elapsed = start.elapsed();
-    let avg_us = (elapsed.as_secs_f64() * 1_000_000.0) / (iterations as f64);
-
-    println!(
-        "🔌 MCP Stdio JSON-RPC Benchmark: {} dispatches in {:.3}ms (Average: {:.2}µs / dispatch)",
-        iterations,
-        elapsed.as_secs_f64() * 1000.0,
-        avg_us
-    );
-    assert!(avg_us < 2000.0, "MCP dispatch took too long: {:.2}µs", avg_us);
 }

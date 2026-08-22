@@ -92,6 +92,14 @@ pub enum ViolationKind {
     NullDereference,
     /// Unbalanced delimiters (braces, brackets, parentheses).
     UnbalancedDelimiters,
+    /// Unmatched or improperly balanced JSX/HTML opening/closing tags or fragments.
+    JsxTagMismatch,
+    /// React hook called conditionally inside if statements, loops, or nested scopes.
+    ConditionalHookCall,
+    /// Server-side secret accessed directly in a client component ("use client").
+    ClientSecretLeak,
+    /// Direct raw HTML injection without sanitization.
+    UnsafeInnerHtml,
 }
 
 impl std::fmt::Display for ViolationKind {
@@ -104,6 +112,10 @@ impl std::fmt::Display for ViolationKind {
             ViolationKind::ReDoSPattern            => "REDOS_PATTERN",
             ViolationKind::NullDereference         => "NULL_DEREF",
             ViolationKind::UnbalancedDelimiters    => "UNBALANCED_DELIMITERS",
+            ViolationKind::JsxTagMismatch          => "JSX_TAG_MISMATCH",
+            ViolationKind::ConditionalHookCall     => "CONDITIONAL_HOOK_CALL",
+            ViolationKind::ClientSecretLeak        => "CLIENT_SECRET_LEAK",
+            ViolationKind::UnsafeInnerHtml         => "UNSAFE_INNER_HTML",
         };
         write!(f, "{}", s)
     }
@@ -112,7 +124,7 @@ impl std::fmt::Display for ViolationKind {
 /// Result produced by `AstGuard::verify`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerificationReport {
-    /// True if all 6 invariant passes succeeded.
+    /// True if all invariant passes succeeded.
     pub passed: bool,
     /// The first violation detected, if any.
     pub violation: Option<ViolationKind>,
@@ -141,20 +153,46 @@ impl VerificationReport {
 // Language Enum (used by AstDiffEngine and SymbolGraph)
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Language {
     Rust,
     TypeScript,
+    JavaScript,
+    Tsx,
+    Jsx,
+    Svelte,
+    Astro,
+    Vue,
     Python,
     Unknown,
 }
 
 impl Language {
+    /// Returns true if this language is a frontend component or script language.
+    pub fn is_frontend(&self) -> bool {
+        matches!(
+            self,
+            Language::TypeScript
+                | Language::JavaScript
+                | Language::Tsx
+                | Language::Jsx
+                | Language::Svelte
+                | Language::Astro
+                | Language::Vue
+        )
+    }
+
     /// Infer language from file extension or language name.
     pub fn from_extension(ext: &str) -> Self {
         match ext.to_lowercase().trim() {
             "rs" | "rust" => Language::Rust,
-            "ts" | "tsx" | "js" | "jsx" | "typescript" | "javascript" => Language::TypeScript,
+            "tsx" | "react-tsx" => Language::Tsx,
+            "jsx" | "react-jsx" => Language::Jsx,
+            "svelte" => Language::Svelte,
+            "astro" => Language::Astro,
+            "vue" => Language::Vue,
+            "ts" | "typescript" => Language::TypeScript,
+            "js" | "javascript" | "mjs" | "cjs" => Language::JavaScript,
             "py" | "python" => Language::Python,
             _ => Language::Unknown,
         }
@@ -196,14 +234,25 @@ mod tests {
         assert_eq!(ViolationKind::DivisionByZero.to_string(),       "DIV_BY_ZERO");
         assert_eq!(ViolationKind::AsyncMutexAcrossAwait.to_string(),"ASYNC_MUTEX_DEADLOCK");
         assert_eq!(ViolationKind::ReDoSPattern.to_string(),         "REDOS_PATTERN");
+        assert_eq!(ViolationKind::JsxTagMismatch.to_string(),       "JSX_TAG_MISMATCH");
+        assert_eq!(ViolationKind::ConditionalHookCall.to_string(),  "CONDITIONAL_HOOK_CALL");
+        assert_eq!(ViolationKind::ClientSecretLeak.to_string(),     "CLIENT_SECRET_LEAK");
+        assert_eq!(ViolationKind::UnsafeInnerHtml.to_string(),      "UNSAFE_INNER_HTML");
     }
 
     #[test]
     fn test_language_from_extension() {
-        assert_eq!(Language::from_extension("rs"),  Language::Rust);
-        assert_eq!(Language::from_extension("ts"),  Language::TypeScript);
-        assert_eq!(Language::from_extension("py"),  Language::Python);
-        assert_eq!(Language::from_extension("csv"), Language::Unknown);
+        assert_eq!(Language::from_extension("rs"),     Language::Rust);
+        assert_eq!(Language::from_extension("ts"),     Language::TypeScript);
+        assert_eq!(Language::from_extension("tsx"),    Language::Tsx);
+        assert_eq!(Language::from_extension("jsx"),    Language::Jsx);
+        assert_eq!(Language::from_extension("svelte"), Language::Svelte);
+        assert_eq!(Language::from_extension("astro"),  Language::Astro);
+        assert_eq!(Language::from_extension("vue"),    Language::Vue);
+        assert_eq!(Language::from_extension("py"),     Language::Python);
+        assert_eq!(Language::from_extension("csv"),    Language::Unknown);
+        assert!(Language::Tsx.is_frontend());
+        assert!(!Language::Rust.is_frontend());
     }
 
     #[test]

@@ -1,4 +1,4 @@
-//! SymbolGraph — Cross-file semantic dependency and symbol resolver (Rust, TS/JS, Python).
+//! SymbolGraph - Cross-file semantic dependency and symbol resolver (Rust, TS/JS, Python).
 
 use std::collections::HashMap;
 use std::fs;
@@ -29,18 +29,21 @@ static RE_RS_TYPE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?m)^(?:pub(?:\([^)]+\))?\s+)?type\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
 });
 
-// TypeScript / JavaScript patterns
+// TypeScript / JavaScript / Frontend patterns
 static RE_TS_FN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^(?:export\s+)?(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)").unwrap()
+    Regex::new(r"(?m)^\s*(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)").unwrap()
+});
+static RE_TS_CONST_FN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?m)^\s*(?:export\s+)?(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*(?::\s*[^=]+)?\s*=\s*(?:async\s*)?(?:\([^)]*\)|[a-zA-Z_$][a-zA-Z0-9_$]*)\s*=>").unwrap()
 });
 static RE_TS_CLASS: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^(?:export\s+)?class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)").unwrap()
+    Regex::new(r"(?m)^\s*(?:export\s+(?:default\s+)?)?class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)").unwrap()
 });
 static RE_TS_INTERFACE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^(?:export\s+)?interface\s+([a-zA-Z_$][a-zA-Z0-9_$]*)").unwrap()
+    Regex::new(r"(?m)^\s*(?:export\s+)?interface\s+([a-zA-Z_$][a-zA-Z0-9_$]*)").unwrap()
 });
 static RE_TS_TYPE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^(?:export\s+)?type\s+([a-zA-Z_$][a-zA-Z0-9_$]*)").unwrap()
+    Regex::new(r"(?m)^\s*(?:export\s+)?type\s+([a-zA-Z_$][a-zA-Z0-9_$]*)").unwrap()
 });
 
 // Python patterns
@@ -110,9 +113,9 @@ impl SymbolGraph {
     pub fn index_file_content(&mut self, rel_path: &str, content: &str, lang: Language) {
         let extracted = match lang {
             Language::Rust => Self::extract_rust_symbols(rel_path, content),
-            Language::TypeScript => Self::extract_ts_symbols(rel_path, content),
+            l if l.is_frontend() => Self::extract_ts_symbols(rel_path, content),
             Language::Python => Self::extract_py_symbols(rel_path, content),
-            Language::Unknown => Vec::new(),
+            _ => Vec::new(),
         };
 
         let mut node_ids = Vec::with_capacity(extracted.len());
@@ -172,6 +175,7 @@ impl SymbolGraph {
 
         let patterns = [
             (&*RE_TS_FN, SymbolKind::Function),
+            (&*RE_TS_CONST_FN, SymbolKind::Function),
             (&*RE_TS_CLASS, SymbolKind::Struct),
             (&*RE_TS_INTERFACE, SymbolKind::Trait),
             (&*RE_TS_TYPE, SymbolKind::TypeAlias),
@@ -183,13 +187,8 @@ impl SymbolGraph {
                     let name = name_match.as_str().to_string();
                     let start = full_match.start();
                     let end = Self::find_closing_boundary(content, start);
-                    let sig = if let Some(brace_idx) = content[start..end].find('{') {
-                        content[start..start + brace_idx].trim().to_string()
-                    } else if let Some(semi_idx) = content[start..end].find(';') {
-                        content[start..start + semi_idx].trim().to_string()
-                    } else {
-                        full_match.as_str().to_string()
-                    };
+                    let sig_end = Self::find_signature_end(&content[start..end]);
+                    let sig = content[start..start + sig_end].trim().to_string();
                     let id = fnv1a_64(format!("{}:{}:{:?}", file, name, kind).as_bytes());
 
                     symbols.push(SymbolNode {
@@ -245,23 +244,119 @@ impl SymbolGraph {
         symbols
     }
 
+    fn find_signature_end(slice: &str) -> usize {
+        let mut paren_depth = 0;
+        let mut in_str = false;
+        let mut quote = '"';
+        let mut prev = '\0';
+
+        for (i, ch) in slice.char_indices() {
+            if ch == '\n' && in_str && (quote == '\'' || quote == '"') {
+                in_str = false;
+            }
+
+            if (ch == '"' || ch == '\'' || ch == '`') && prev != '\\' {
+                if ch == '\'' && !in_str {
+                    let rest = &slice[i + ch.len_utf8()..];
+                    let is_char_lit = (rest.chars().nth(1) == Some('\'') && rest.chars().next() != Some('\\'))
+                        || (rest.starts_with('\\') && rest.chars().nth(2) == Some('\''));
+                    if !is_char_lit && (prev == '&' || prev == '<' || prev == ',' || prev == ' ' || prev == '(') {
+                        // Rust lifetime like &'a or <'a> - ignore
+                        prev = ch;
+                        continue;
+                    }
+                }
+
+                if in_str && ch == quote {
+                    in_str = false;
+                } else if !in_str {
+                    in_str = true;
+                    quote = ch;
+                }
+                prev = ch;
+                continue;
+            }
+            if in_str {
+                prev = ch;
+                continue;
+            }
+
+            if ch == '(' {
+                paren_depth += 1;
+            } else if ch == ')' {
+                if paren_depth > 0 { paren_depth -= 1; }
+            } else if paren_depth == 0 {
+                if ch == '{' || ch == ';' {
+                    return i;
+                }
+            }
+            prev = ch;
+        }
+        slice.len()
+    }
+
     fn find_closing_boundary(content: &str, start: usize) -> usize {
         let slice = &content[start..];
         let mut depth = 0;
+        let mut paren_depth = 0;
         let mut found_open = false;
+        let mut in_str = false;
+        let mut quote = '"';
+        let mut prev = '\0';
 
         for (i, ch) in slice.char_indices() {
-            if ch == '{' {
-                depth += 1;
-                found_open = true;
-            } else if ch == '}' {
-                depth -= 1;
-                if depth == 0 && found_open {
-                    return start + i + 1;
+            if ch == '\n' && in_str && (quote == '\'' || quote == '"') {
+                in_str = false;
+            }
+
+            if (ch == '"' || ch == '\'' || ch == '`') && prev != '\\' {
+                if ch == '\'' && !in_str {
+                    let rest = &slice[i + ch.len_utf8()..];
+                    let is_char_lit = (rest.chars().nth(1) == Some('\'') && rest.chars().next() != Some('\\'))
+                        || (rest.starts_with('\\') && rest.chars().nth(2) == Some('\''));
+                    if !is_char_lit && (prev == '&' || prev == '<' || prev == ',' || prev == ' ' || prev == '(') {
+                        // Rust lifetime like &'a or <'a> - ignore
+                        prev = ch;
+                        continue;
+                    }
                 }
-            } else if ch == ';' && !found_open {
+
+                if in_str && ch == quote {
+                    in_str = false;
+                } else if !in_str {
+                    in_str = true;
+                    quote = ch;
+                }
+                prev = ch;
+                continue;
+            }
+            if in_str {
+                prev = ch;
+                continue;
+            }
+
+            if ch == '(' {
+                paren_depth += 1;
+            } else if ch == ')' {
+                if paren_depth > 0 {
+                    paren_depth -= 1;
+                }
+            } else if ch == '{' {
+                if paren_depth == 0 {
+                    depth += 1;
+                    found_open = true;
+                }
+            } else if ch == '}' {
+                if paren_depth == 0 && found_open {
+                    depth -= 1;
+                    if depth == 0 {
+                        return start + i + 1;
+                    }
+                }
+            } else if ch == ';' && !found_open && paren_depth == 0 {
                 return start + i + 1;
             }
+            prev = ch;
         }
 
         content.len()

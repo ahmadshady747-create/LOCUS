@@ -1,4 +1,4 @@
-﻿//! AstGuard — 6-pass deterministic safety invariant verifier.
+//! AstGuard - 6-pass deterministic safety invariant verifier.
 //!
 //! All regex patterns are compiled once at startup via `std::sync::LazyLock`
 //! and reused across calls. Each `verify()` call typically completes in <0.05ms.
@@ -11,7 +11,7 @@ use regex::Regex;
 use crate::types::{VerificationReport, ViolationKind};
 
 // ---------------------------------------------------------------------------
-// Compiled regex patterns (LazyLock — initialised once, reused forever)
+// Compiled regex patterns (LazyLock - initialised once, reused forever)
 // ---------------------------------------------------------------------------
 
 /// Matches variable division: identifier or single letter divided by variable.
@@ -64,6 +64,31 @@ static RE_OPTIONAL_CHAIN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\?\.[a-zA-Z_$]").unwrap()
 });
 
+/// Detects conditional hook invocations inside if blocks.
+static RE_HOOK_IF: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?s)\bif\s*\([^)]*\)\s*\{[^}]*\buse[A-Z][a-zA-Z0-9_]*\s*\(").unwrap()
+});
+
+/// Detects conditional hook invocations inside loops (for, while).
+static RE_HOOK_LOOP: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?s)\b(for|while)\s*\([^)]*\)\s*\{[^}]*\buse[A-Z][a-zA-Z0-9_]*\s*\(").unwrap()
+});
+
+/// Detects conditional hook invocations inside ternary branches.
+static RE_HOOK_TERNARY: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\?[^:;\n]*\buse[A-Z][a-zA-Z0-9_]*\s*\(").unwrap()
+});
+
+/// Detects client-side secret references without safe public prefixes.
+static RE_CLIENT_SECRET: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?:process\.env|import\.meta\.env)\.([A-Z0-9_]+)"#).unwrap()
+});
+
+/// Detects raw dangerouslySetInnerHTML without sanitization wrappers.
+static RE_DANGEROUS_HTML: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"dangerouslySetInnerHTML\s*=\s*\{\{\s*__html\s*:\s*([^}]+)\}\}"#).unwrap()
+});
+
 // ---------------------------------------------------------------------------
 // AstGuard
 // ---------------------------------------------------------------------------
@@ -73,7 +98,7 @@ static RE_OPTIONAL_CHAIN: LazyLock<Regex> = LazyLock::new(|| {
 pub struct AstGuard;
 
 impl AstGuard {
-    /// Run all 6 invariant passes on `source` and return a `VerificationReport`.
+    /// Run all invariant passes on `source` and return a `VerificationReport`.
     /// Average latency: <0.05ms on modern hardware.
     pub fn verify(source: &str) -> VerificationReport {
         let start = Instant::now();
@@ -124,6 +149,30 @@ impl AstGuard {
             return VerificationReport::failed(ViolationKind::NullDereference, v, latency_ms);
         }
 
+        // Pass 7: React Rules of Hooks (Conditional Invocations)
+        if let Some(v) = Self::check_conditional_hooks(source) {
+            let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
+            return VerificationReport::failed(ViolationKind::ConditionalHookCall, v, latency_ms);
+        }
+
+        // Pass 8: Client/Server Boundary Secret Leak
+        if let Some(v) = Self::check_client_secret_leak(source) {
+            let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
+            return VerificationReport::failed(ViolationKind::ClientSecretLeak, v, latency_ms);
+        }
+
+        // Pass 9: Unsafe Inner HTML Injection
+        if let Some(v) = Self::check_unsafe_inner_html(source) {
+            let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
+            return VerificationReport::failed(ViolationKind::UnsafeInnerHtml, v, latency_ms);
+        }
+
+        // Pass 10: JSX / HTML Tag Balancing
+        if let Some(v) = Self::check_jsx_tags(source) {
+            let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
+            return VerificationReport::failed(ViolationKind::JsxTagMismatch, v, latency_ms);
+        }
+
         VerificationReport::passed(start.elapsed().as_secs_f64() * 1000.0)
     }
 
@@ -137,7 +186,7 @@ impl AstGuard {
 
         for ch in source.chars() {
             // Naive string boundary tracking (skips escape sequences)
-            if (ch == '"' || ch == '\'') && prev != '\\' {
+            if (ch == '"' || ch == '\'' || ch == '`') && prev != '\\' {
                 if in_string && ch == string_char {
                     in_string = false;
                 } else if !in_string {
@@ -164,6 +213,221 @@ impl AstGuard {
         stack.is_empty()
     }
 
+    /// Dijkstra JSX and HTML tag balance scanner.
+    /// Verifies opening/closing tags, fragments `<>...</>`, and self-closing tags `<img />`.
+    pub fn check_jsx_tags(source: &str) -> Option<String> {
+        // Fast skip if code contains no JSX/HTML tags
+        if !source.contains('<') || !source.contains('>') {
+            return None;
+        }
+
+        let bytes = source.as_bytes();
+        let len = bytes.len();
+        let mut stack: Vec<String> = Vec::new();
+        let mut i = 0;
+        let mut in_string = false;
+        let mut quote_char = 0u8;
+
+        while i < len {
+            let b = bytes[i];
+
+            // String tracking
+            if (b == b'"' || b == b'\'' || b == b'`') && (i == 0 || bytes[i - 1] != b'\\') {
+                if in_string && b == quote_char {
+                    in_string = false;
+                } else if !in_string {
+                    in_string = true;
+                    quote_char = b;
+                }
+                i += 1;
+                continue;
+            }
+            if in_string {
+                i += 1;
+                continue;
+            }
+
+            // Skip comments
+            if b == b'/' && i + 1 < len && bytes[i + 1] == b'/' {
+                while i < len && bytes[i] != b'\n' { i += 1; }
+                continue;
+            }
+            if b == b'/' && i + 1 < len && bytes[i + 1] == b'*' {
+                i += 2;
+                while i + 1 < len && !(bytes[i] == b'*' && bytes[i + 1] == b'/') { i += 1; }
+                i += 2;
+                continue;
+            }
+
+            if b == b'<' && i + 1 < len {
+                let next = bytes[i + 1];
+
+                // Skip comments <!-- ... -->
+                if i + 3 < len && &bytes[i..i + 4] == b"<!--" {
+                    i += 4;
+                    while i + 2 < len && &bytes[i..i + 3] != b"-->" { i += 1; }
+                    i += 3;
+                    continue;
+                }
+
+                // Check Fragment <>
+                if next == b'>' {
+                    stack.push("".to_string());
+                    i += 2;
+                    continue;
+                }
+
+                // Check Closing Fragment </> or Closing Tag </tag>
+                if next == b'/' {
+                    if i + 2 < len && bytes[i + 2] == b'>' {
+                        // Closing fragment </>
+                        match stack.pop() {
+                            Some(tag) if tag.is_empty() => { i += 3; continue; }
+                            Some(tag) => return Some(format!("Mismatched closing fragment `</>` for opened tag `<{}>`", tag)),
+                            None => return Some("Unexpected closing fragment `</>` without matching `<>`".to_string()),
+                        }
+                    }
+
+                    // Closing tag </tag>
+                    let tag_start = i + 2;
+                    let mut tag_end = tag_start;
+                    while tag_end < len && (bytes[tag_end].is_ascii_alphanumeric() || bytes[tag_end] == b'_' || bytes[tag_end] == b'$' || bytes[tag_end] == b'.' || bytes[tag_end] == b'-') {
+                        tag_end += 1;
+                    }
+                    if tag_end > tag_start {
+                        let tag_name = &source[tag_start..tag_end];
+                        // Scan forward to '>'
+                        while tag_end < len && bytes[tag_end] != b'>' { tag_end += 1; }
+                        if tag_end < len && bytes[tag_end] == b'>' {
+                            match stack.pop() {
+                                Some(open_tag) if open_tag == tag_name => { i = tag_end + 1; continue; }
+                                Some(open_tag) => return Some(format!("Mismatched JSX closing tag `</{}>` for opened tag `<{}>`", tag_name, open_tag)),
+                                None => return Some(format!("Unexpected JSX closing tag `</{}>` without opening tag", tag_name)),
+                            }
+                        }
+                    }
+                }
+
+                // Opening tag <TagName ...> or <TagName ... />
+                if next.is_ascii_alphabetic() || next == b'_' || next == b'$' {
+                    let tag_start = i + 1;
+                    let mut tag_end = tag_start;
+                    while tag_end < len && (bytes[tag_end].is_ascii_alphanumeric() || bytes[tag_end] == b'_' || bytes[tag_end] == b'$' || bytes[tag_end] == b'.' || bytes[tag_end] == b'-') {
+                        tag_end += 1;
+                    }
+                    let tag_name = source[tag_start..tag_end].to_string();
+
+                    // Scan tag attributes up to '>' or '/>'
+                    let mut scan = tag_end;
+                    let mut is_self_closing = false;
+                    let mut attr_in_str = false;
+                    let mut attr_quote = 0u8;
+                    let mut brace_depth = 0;
+
+                    while scan < len {
+                        let sb = bytes[scan];
+                        if (sb == b'"' || sb == b'\'' || sb == b'`') && (scan == 0 || bytes[scan - 1] != b'\\') {
+                            if attr_in_str && sb == attr_quote { attr_in_str = false; }
+                            else if !attr_in_str { attr_in_str = true; attr_quote = sb; }
+                        }
+                        if !attr_in_str {
+                            if sb == b'{' { brace_depth += 1; }
+                            else if sb == b'}' { if brace_depth > 0 { brace_depth -= 1; } }
+                            else if brace_depth == 0 {
+                                if sb == b'/' && scan + 1 < len && bytes[scan + 1] == b'>' {
+                                    is_self_closing = true;
+                                    scan += 2;
+                                    break;
+                                }
+                                if sb == b'>' {
+                                    scan += 1;
+                                    break;
+                                }
+                            }
+                        }
+                        scan += 1;
+                    }
+
+                    // Known HTML void tags (auto self-closing)
+                    let is_void_tag = matches!(tag_name.to_lowercase().as_str(), "img" | "input" | "br" | "hr" | "meta" | "link" | "source");
+
+                    if !is_self_closing && !is_void_tag {
+                        stack.push(tag_name);
+                    }
+                    i = scan;
+                    continue;
+                }
+            }
+
+            i += 1;
+        }
+
+        if let Some(unclosed) = stack.last() {
+            if unclosed.is_empty() {
+                return Some("Unclosed JSX fragment `<>` at end of file".to_string());
+            } else {
+                return Some(format!("Unclosed JSX tag `<{}>` at end of file", unclosed));
+            }
+        }
+
+        None
+    }
+
+    // --- Internal Passes ---
+
+    fn check_conditional_hooks(source: &str) -> Option<String> {
+        if RE_HOOK_IF.is_match(source) {
+            return Some("React Hook called conditionally inside an `if` block - violates Rules of Hooks.".to_string());
+        }
+        if RE_HOOK_LOOP.is_match(source) {
+            return Some("React Hook called inside a loop (`for`/`while`) - violates Rules of Hooks.".to_string());
+        }
+        if RE_HOOK_TERNARY.is_match(source) {
+            return Some("React Hook called inside a ternary branch - violates Rules of Hooks.".to_string());
+        }
+        None
+    }
+
+    fn check_client_secret_leak(source: &str) -> Option<String> {
+        let is_client = source.contains("\"use client\"") || source.contains("'use client'");
+        if is_client {
+            for cap in RE_CLIENT_SECRET.captures_iter(source) {
+                if let Some(var_name) = cap.get(1) {
+                    let name = var_name.as_str();
+                    let is_safe_public = name.starts_with("NEXT_PUBLIC_")
+                        || name.starts_with("VITE_")
+                        || name.starts_with("PUBLIC_")
+                        || name.starts_with("REACT_APP_")
+                        || matches!(name, "NODE_ENV" | "BASE_URL" | "DEV" | "PROD" | "SSR" | "MODE");
+
+                    if !is_safe_public {
+                        return Some(format!(
+                            "Server-side secret `{}` accessed in client component (\"use client\") without safe public prefix.",
+                            cap.get(0).map(|m| m.as_str()).unwrap_or(name)
+                        ));
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    fn check_unsafe_inner_html(source: &str) -> Option<String> {
+        for cap in RE_DANGEROUS_HTML.captures_iter(source) {
+            if let Some(expr) = cap.get(1) {
+                let html_expr = expr.as_str().trim();
+                let is_sanitized = html_expr.contains("sanitize") || html_expr.starts_with('"') || html_expr.starts_with('\'');
+                if !is_sanitized {
+                    return Some(format!(
+                        "Unsanitized `dangerouslySetInnerHTML` with raw `{}` - vulnerable to XSS injection.",
+                        html_expr
+                    ));
+                }
+            }
+        }
+        None
+    }
+
     // --- Internal Passes ---
 
     fn check_div_by_zero(source: &str) -> Option<String> {
@@ -171,7 +435,7 @@ impl AstGuard {
             if !source.contains("!= 0") && !source.contains("!= 0.0") && !source.contains("assert!") {
                 if let Some(m) = RE_DIV_BY_ZERO.find(source) {
                     return Some(format!(
-                        "Unguarded division at byte {}: `{}` — denominator may be zero.",
+                        "Unguarded division at byte {}: `{}` - denominator may be zero.",
                         m.start(), m.as_str()
                     ));
                 }
@@ -210,7 +474,7 @@ impl AstGuard {
     fn check_async_mutex(source: &str) -> Option<String> {
         if RE_SYNC_MUTEX.is_match(source) && RE_AWAIT.is_match(source) {
             return Some(
-                "std::sync::Mutex used in async context with .await — use tokio::sync::Mutex instead.".to_string()
+                "std::sync::Mutex used in async context with .await - use tokio::sync::Mutex instead.".to_string()
             );
         }
         None
@@ -219,7 +483,7 @@ impl AstGuard {
     fn check_redos(source: &str) -> Option<String> {
         if let Some(m) = RE_REDOS.find(source) {
             return Some(format!(
-                "Catastrophic ReDoS pattern at byte {}: `{}` — nested quantifiers cause O(2^n) backtracking.",
+                "Catastrophic ReDoS pattern at byte {}: `{}` - nested quantifiers cause O(2^n) backtracking.",
                 m.start(), &m.as_str()[..m.as_str().len().min(60)]
             ));
         }
@@ -229,10 +493,14 @@ impl AstGuard {
     fn check_null_deref(source: &str) -> Option<String> {
         if RE_NULL_DEREF.is_match(source) && !RE_OPTIONAL_CHAIN.is_match(source) {
             if source.contains(": string") || source.contains("const ") || source.contains("interface ") {
-                if let Some(m) = RE_NULL_DEREF.find(source) {
+                for m in RE_NULL_DEREF.find_iter(source) {
+                    let s = m.as_str();
+                    if s.starts_with("process.env") || s.starts_with("import.meta") {
+                        continue;
+                    }
                     return Some(format!(
-                        "Deep property access without optional chaining at byte {}: `{}` — use `?.`",
-                        m.start(), m.as_str()
+                        "Deep property access without optional chaining at byte {}: `{}` - use `?.`",
+                        m.start(), s
                     ));
                 }
             }
@@ -334,7 +602,7 @@ const RE: &str = "(a+)+$";
         let start = Instant::now();
         let _r = AstGuard::verify(source);
         let elapsed = start.elapsed().as_secs_f64() * 1000.0;
-        assert!(elapsed < 50.0, "verify() took {}ms — expected <50ms in debug", elapsed);
+        assert!(elapsed < 50.0, "verify() took {}ms - expected <50ms in debug", elapsed);
     }
 
     #[test]
@@ -342,5 +610,94 @@ const RE: &str = "(a+)+$";
         assert!(AstGuard::check_delimiter_balance("fn f() { let x = [1, 2]; }"));
         assert!(!AstGuard::check_delimiter_balance("fn f() { let x = [1, 2; }"));
         assert!(!AstGuard::check_delimiter_balance("((()))(("));
+    }
+
+    #[test]
+    fn test_jsx_tag_balancing() {
+        let valid_jsx = r#"
+        export function Card() {
+            return (
+                <>
+                    <div className="container">
+                        <img src="logo.png" alt="logo" />
+                        <span>Hello World</span>
+                    </div>
+                </>
+            );
+        }
+        "#;
+        let rep = AstGuard::verify(valid_jsx);
+        assert!(rep.passed, "Expected valid JSX to pass: {:?}", rep.violation);
+
+        let mismatched_jsx = r#"
+        export function Broken() {
+            return <div><span>Mismatched</div></span>;
+        }
+        "#;
+        let rep_bad = AstGuard::verify(mismatched_jsx);
+        assert!(!rep_bad.passed);
+        assert_eq!(rep_bad.violation, Some(ViolationKind::JsxTagMismatch));
+    }
+
+    #[test]
+    fn test_detects_conditional_hooks() {
+        let bad_hook = r#"
+        function MyComponent({ isLoggedIn }) {
+            if (isLoggedIn) {
+                const [user, setUser] = useState(null);
+            }
+            return <div>User</div>;
+        }
+        "#;
+        let rep = AstGuard::verify(bad_hook);
+        assert!(!rep.passed);
+        assert_eq!(rep.violation, Some(ViolationKind::ConditionalHookCall));
+    }
+
+    #[test]
+    fn test_detects_client_secret_leak() {
+        let client_code = r#"
+        "use client";
+        import React from "react";
+        export function Checkout() {
+            const secret = process.env.STRIPE_SECRET_KEY;
+            return <button>Pay</button>;
+        }
+        "#;
+        let rep = AstGuard::verify(client_code);
+        assert!(!rep.passed);
+        assert_eq!(rep.violation, Some(ViolationKind::ClientSecretLeak));
+
+        let safe_client = r#"
+        "use client";
+        import React from "react";
+        export function Safe() {
+            const pubKey = process.env.NEXT_PUBLIC_STRIPE_KEY;
+            return <button>Pay</button>;
+        }
+        "#;
+        let rep_safe = AstGuard::verify(safe_client);
+        assert!(rep_safe.passed, "Safe public env should pass: {:?}", rep_safe.violation);
+    }
+
+    #[test]
+    fn test_detects_unsafe_inner_html() {
+        let raw_injection = r#"
+        export function Bio({ bioHtml }) {
+            return <div dangerouslySetInnerHTML={{ __html: bioHtml }} />;
+        }
+        "#;
+        let rep = AstGuard::verify(raw_injection);
+        assert!(!rep.passed);
+        assert_eq!(rep.violation, Some(ViolationKind::UnsafeInnerHtml));
+
+        let sanitized = r#"
+        import DOMPurify from 'dompurify';
+        export function SafeBio({ bioHtml }) {
+            return <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(bioHtml) }} />;
+        }
+        "#;
+        let rep_safe = AstGuard::verify(sanitized);
+        assert!(rep_safe.passed, "Sanitized dangerouslySetInnerHTML should pass: {:?}", rep_safe.violation);
     }
 }

@@ -53,7 +53,7 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                     },
                     "serverInfo": {
                         "name": "locus-engine",
-                        "version": "0.1.0"
+                        "version": "0.3.0"
                     }
                 }
             });
@@ -87,7 +87,7 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                 "tools": [
                     {
                         "name": "check_safety",
-                        "description": "Deterministic 6-pass invariant AST safety check (<0.05ms) catching delimiter balance, async mutex across await, div-by-zero, array bounds, unsafe unwraps, and ReDoS.",
+                        "description": "Deterministic AST invariant safety check (<0.05ms) catching delimiter balance, async mutex across await, div-by-zero, array bounds, unsafe unwraps, ReDoS, JSX tag mismatches, conditional hooks, and client secret leaks.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -104,7 +104,7 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                     },
                     {
                         "name": "skeletonize",
-                        "description": "Surgically extracts an AST skeleton (type signatures only, stripped bodies) providing >50-80% context token reduction.",
+                        "description": "Surgically extracts an AST skeleton (type signatures, imports, interfaces, collapsed JSX render trees) providing >50-80% context token reduction across Rust, TSX, JSX, Svelte, Astro, Vue, and Python.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -114,7 +114,7 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                                 },
                                 "language": {
                                     "type": "string",
-                                    "enum": ["rust", "typescript", "python"],
+                                    "enum": ["rust", "typescript", "javascript", "tsx", "jsx", "svelte", "astro", "vue", "python"],
                                     "description": "Programming language of the code"
                                 }
                             },
@@ -123,7 +123,7 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                     },
                     {
                         "name": "patch_symbol",
-                        "description": "Surgically replaces a named AST symbol with new code within a source file.",
+                        "description": "Surgically replaces a named AST symbol (function, struct, component, event handler) with new code within a source file.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -133,7 +133,7 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                                 },
                                 "symbol": {
                                     "type": "string",
-                                    "description": "Name of the function, struct, or class to replace"
+                                    "description": "Name of the function, struct, class, component, or event handler to replace"
                                 },
                                 "new_code": {
                                     "type": "string",
@@ -141,7 +141,7 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                                 },
                                 "language": {
                                     "type": "string",
-                                    "enum": ["rust", "typescript", "python"],
+                                    "enum": ["rust", "typescript", "javascript", "tsx", "jsx", "svelte", "astro", "vue", "python"],
                                     "description": "Programming language of the source"
                                 }
                             },
@@ -399,7 +399,7 @@ mod tests {
         let parsed: Value = serde_json::from_str(&resp).unwrap();
         assert_eq!(parsed["id"], 1);
         assert_eq!(parsed["result"]["serverInfo"]["name"], "locus-engine");
-        assert_eq!(parsed["result"]["serverInfo"]["version"], "0.1.0");
+        assert_eq!(parsed["result"]["serverInfo"]["version"], "0.3.0");
     }
 
     #[test]

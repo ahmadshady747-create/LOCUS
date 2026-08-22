@@ -1,4 +1,4 @@
-﻿//! locus CLI — High-speed deterministic verification and AST semantic tooling.
+//! locus CLI - High-speed deterministic verification and AST semantic tooling.
 
 use std::env;
 use std::fs;
@@ -10,19 +10,21 @@ use locus_engine::{run_stdio_server, AstDiffEngine, AstGuard, Language, SymbolGr
 
 fn print_usage() {
     eprintln!(
-        r#"locus-engine CLI v0.1.0
+        r#"locus-engine CLI v0.3.0
 
 USAGE:
     locus check <file_path>
+    locus skeleton <file_path>
     locus graph <directory_path>
     locus patch <file_path> --symbol <symbol_name> --with <new_code>
     locus mcp
 
 COMMANDS:
-    check    Run 6-pass deterministic safety verification on a target source file
-    graph    Index directory, construct cross-file symbol graph, and display token savings
-    patch    Surgically replace a named AST symbol with new code
-    mcp      Start MCP server over stdio for Claude Code, Cursor, and IDEs
+    check       Run deterministic safety verification on a target source file
+    skeleton    Extract high-level AST skeleton preserving imports, types, and component signatures
+    graph       Index directory, construct cross-file symbol graph, and display token savings
+    patch       Surgically replace a named AST symbol with new code
+    mcp         Start MCP server over stdio for Claude Code, Cursor, and Antigravity
 "#
     );
 }
@@ -40,6 +42,28 @@ fn main() {
                 eprintln!("MCP Server error: {}", e);
                 process::exit(1);
             }
+        }
+
+        "skeleton" => {
+            if args.len() < 3 {
+                eprintln!("Error: Missing <file_path> for 'skeleton' command.");
+                process::exit(1);
+            }
+            let file_path = &args[2];
+            let content = match fs::read_to_string(file_path) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("Error reading '{}': {}", file_path, e);
+                    process::exit(1);
+                }
+            };
+            let ext = Path::new(file_path)
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("");
+            let lang = Language::from_extension(ext);
+            let skeleton = AstDiffEngine::skeletonize(&content, lang);
+            println!("{}", skeleton);
         }
 
         "check" => {
@@ -63,7 +87,7 @@ fn main() {
             println!(" Target File: {}", file_path);
             println!(" Verified Latency: {:.4} ms", report.latency_ms);
             if report.passed {
-                println!(" Status: [PASS] All 6 Deterministic Safety Invariants Validated");
+                println!(" Status: [PASS] All Deterministic Safety Invariants Validated");
             } else {
                 println!(" Status: [FAIL] Invariant Violation Detected");
                 if let Some(v) = report.violation {

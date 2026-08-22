@@ -1,10 +1,10 @@
-﻿[package]
+[package]
 name = "locus-engine"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Ahmed Shadi"]
 description = "Deterministic AST Verification, Cross-File Semantic Graph & Surgical Patching Engine in Pure Rust"
-license = "MIT OR Apache-2.0"
+license = "BSL-1.1"
 repository = "https://github.com/ahmadshady747-create/LOCUS"
 homepage = "https://github.com/ahmadshady747-create/LOCUS"
 readme = "README.md"

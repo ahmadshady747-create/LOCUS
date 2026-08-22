@@ -1,4 +1,4 @@
-﻿//! AstDiffEngine — Surgical node-level byte-span AST patching and skeleton extraction.
+//! AstDiffEngine - Surgical node-level byte-span AST patching and skeleton extraction.
 
 use thiserror::Error;
 use crate::graph::SymbolGraph;
@@ -48,6 +48,10 @@ impl AstDiffEngine {
 
     /// Extracts a high-level skeleton by replacing function bodies with semicolons or passes.
     pub fn skeletonize(source: &str, lang: Language) -> String {
+        if lang.is_frontend() {
+            return Self::skeletonize_frontend(source);
+        }
+
         let mut graph = SymbolGraph::new();
         graph.index_file_content("target", source, lang);
 
@@ -69,22 +73,83 @@ impl AstDiffEngine {
                         skeleton.push('\n');
                     }
                 }
-                Language::TypeScript => {
-                    skeleton.push_str(&node.signature);
-                    skeleton.push_str(";\n");
-                }
                 Language::Python => {
                     skeleton.push_str(&node.signature);
                     skeleton.push_str(":\n    ...\n");
                 }
-                Language::Unknown => {
+                _ => {
                     skeleton.push_str(&node.signature);
-                    skeleton.push('\n');
+                    skeleton.push_str(";\n");
                 }
             }
         }
 
         skeleton
+    }
+
+    /// Specialized frontend skeletonizer preserving imports, interfaces, types, and collapsing JSX render trees.
+    fn skeletonize_frontend(source: &str) -> String {
+        let mut skeleton = String::with_capacity(source.len() / 4);
+
+        // 1. Preserve all import statements
+        for line in source.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("import ") || trimmed.starts_with("\"use client\"") || trimmed.starts_with("'use client'") {
+                skeleton.push_str(trimmed);
+                skeleton.push('\n');
+            }
+        }
+
+        if !skeleton.is_empty() {
+            skeleton.push('\n');
+        }
+
+        // 2. Extract types and interfaces
+        let mut graph = SymbolGraph::new();
+        graph.index_file_content("target", source, Language::Tsx);
+
+        let mut sorted_nodes: Vec<_> = graph.nodes.values().collect();
+        sorted_nodes.sort_by_key(|n| n.byte_start);
+
+        for node in sorted_nodes {
+            match node.kind {
+                crate::types::SymbolKind::Trait | crate::types::SymbolKind::TypeAlias => {
+                    // Extract full interface/type definition from source
+                    let decl = &source[node.byte_start..node.byte_end];
+                    skeleton.push_str(decl.trim());
+                    skeleton.push_str("\n\n");
+                }
+                crate::types::SymbolKind::Function | crate::types::SymbolKind::Struct => {
+                    // Check if signature contains JSX / Component render
+                    let sig = &node.signature;
+                    let is_component = node.name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false);
+                    
+                    if is_component || sig.contains("JSX.Element") || sig.contains("ReactNode") || sig.contains("React.FC") {
+                        // Count rough JSX tags inside the component body
+                        let body = &source[node.byte_start..node.byte_end];
+                        let tag_count = body.matches('<').count().max(1);
+                        
+                        skeleton.push_str(sig);
+                        skeleton.push_str(" {\n    // [JSX: ~");
+                        skeleton.push_str(&tag_count.to_string());
+                        skeleton.push_str(" render nodes collapsed for token optimization]\n}\n\n");
+                    } else {
+                        skeleton.push_str(sig);
+                        if !sig.ends_with(';') {
+                            skeleton.push_str(";\n");
+                        } else {
+                            skeleton.push('\n');
+                        }
+                    }
+                }
+                _ => {
+                    skeleton.push_str(&node.signature);
+                    skeleton.push_str(";\n");
+                }
+            }
+        }
+
+        skeleton.trim_end().to_string()
     }
 }
 
@@ -119,5 +184,76 @@ pub fn answer() -> i32 {
         let code = "pub fn foo() {}";
         let res = AstDiffEngine::patch(code, "bar", "pub fn bar() {}", Language::Rust);
         assert_eq!(res, Err(DiffError::SymbolNotFound("bar".to_string())));
+    }
+
+    #[test]
+    fn test_skeletonize_react_tsx() {
+        let component = r#"
+"use client";
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+
+export interface UserTableProps {
+    users: Array<{ id: string; name: string }>;
+    onSelect: (id: string) => void;
+}
+
+export function UserTable({ users, onSelect }: UserTableProps) {
+    const [selected, setSelected] = useState<string | null>(null);
+
+    const handleRowClick = (id: string) => {
+        setSelected(id);
+        onSelect(id);
+    };
+
+    return (
+        <div className="overflow-x-auto">
+            <table className="min-w-full">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {users.map(u => (
+                        <tr key={u.id} onClick={() => handleRowClick(u.id)}>
+                            <td>{u.id}</td>
+                            <td>{u.name}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+"#;
+        let skeleton = AstDiffEngine::skeletonize(component, Language::Tsx);
+        assert!(skeleton.contains("import React, { useState } from 'react';"));
+        assert!(skeleton.contains("export interface UserTableProps"));
+        assert!(skeleton.contains("export function UserTable({ users, onSelect }: UserTableProps) {"));
+        assert!(skeleton.contains("// [JSX: ~"));
+        assert!(!skeleton.contains("<thead>"));
+        assert!(skeleton.len() < component.len() / 2);
+    }
+
+    #[test]
+    fn test_patch_frontend_event_handler() {
+        let source = r#"
+export function Form() {
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        console.log("old submit");
+    };
+
+    return <form onSubmit={handleSubmit}><button>Submit</button></form>;
+}
+"#;
+        let new_handler = "const handleSubmit = async (e: React.FormEvent) => {\n        e.preventDefault();\n        await api.post('/data');\n    };";
+        let patched = AstDiffEngine::patch(source, "handleSubmit", new_handler, Language::Tsx)
+            .expect("Frontend patch failed");
+
+        assert!(patched.contains("await api.post('/data');"));
+        assert!(patched.contains("<form onSubmit={handleSubmit}>"));
     }
 }
