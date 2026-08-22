@@ -1,8 +1,8 @@
 # locus-engine 🦀⚡
 
-> **High-Throughput Compound MCP Pipelines, Deterministic AST Safety Guard, Cross-Module Symbol Resolver, Blast-Radius Impact Analyzer, and Context Slicer in Pure Rust.**
+> **Deterministic AST Safety Guard, High-Throughput Compound Pipelines, Bidirectional Intent & Contract Synthesizer, Polyglot Cross-Module Graph, and Zero-Dependency Model Context Protocol (MCP) Server in Pure Safe Rust.**
 
-[![Release: v0.3.3](https://img.shields.io/badge/Release-v0.3.3-blue.svg)](https://github.com/ahmadshady747-create/LOCUS/releases/tag/v0.3.3)
+[![Release: v1.0.0](https://img.shields.io/badge/Release-v1.0.0%20(GA)-blue.svg)](https://github.com/ahmadshady747-create/LOCUS/releases/tag/v1.0.0)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
 [![Tests: 64/64 Passing](https://img.shields.io/badge/Tests-64%2F64%20Passing%20(100%25)-brightgreen.svg)](Cargo.toml)
 [![Protocol: Model Context Protocol (MCP)](https://img.shields.io/badge/Protocol-MCP%20JSON--RPC%202.0-blueviolet.svg)](src/mcp.rs)
@@ -17,17 +17,16 @@
 
 Modern AI code generation agents (Claude Code, Cursor, Copilot, Antigravity, Devin) and automated developer pipelines face two systemic engineering bottlenecks:
 1. **Probabilistic Syntax, Concurrency & Security Regressions:** AI agents frequently hallucinate unclosed delimiters, broken JSX/HTML tags, illegal conditional hook calls, server secret leaks in `"use client"` files, panic-inducing `.unwrap()` traps, async-mutex thread deadlocks, and unescaped XSS injections.
-2. **LLM Round-Trip Latency & Context Window Inflation:** Multi-step micro-calls (fetching skeleton, finding references, calculating blast radius, checking safety, patching) multiply LLM turn delays, wasting token budgets and causing context fragmentation.
+2. **Context Window Inflation, LLM Turn Latency & Blind Refactoring:** Multi-step micro-calls multiply LLM turn delays, feeding entire 2,000-line source files into prompts wastes up to **80% of token budgets**, and refactoring shared symbols without blast-radius analysis leads to catastrophic downstream breaking changes.
 
-**`locus-engine` (v0.3.3)** introduces **High-Throughput Compound MCP Pipelines** in pure safe Rust:
-- **⚡ Consolidated Context Pipeline (`prepare_context`):** Combines AST skeletonization, intent context slicing, blast radius, symbol resolution, and token savings in a single atomic sub-millisecond pass (**`250 µs`**).
-- **🛡️ Verified Atomic Patching Pipeline (`verified_patch`):** Executes pre-patch safety verification, in-memory AST symbol replacement, full-file integrity validation, and atomic disk writes in **`1.51 ms`**.
-- **Blast-Radius & Impact Analysis (`get_blast_radius`):** Computes downstream caller chains, affected file sets, and breaking change risk scores in **`6.43 µs`**.
-- **Cross-Module Symbol Resolver (`resolve_symbol`):** Resolves origin files, byte spans, signatures, and doc-comments across module paths in **`4.99 µs`**.
-- **Inbound Reference Finder (`find_references`):** Maps every call site, import, and usage across the entire indexed workspace.
-- **Architectural Health Auditor (`detect_import_cycles`, `find_orphan_exports`):** Finds circular dependency loops and dead exports.
-- **Proactive Intent Synthesis (`synthesize_contract`):** Projects natural language intent into strict type scaffolding in **`15.27 µs`**.
-- **Reactive & Invariant Verification (`verify_contract`, `check_safety`):** Enforces 11 deterministic safety invariants in **microsecond time (`24.70 µs – 68.14 µs`)**.
+**`locus-engine` (v1.0.0 - Production General Availability)** bridges stochastic AI models and deterministic systems engineering through pure safe Rust in microsecond time:
+- **⚡ High-Throughput Compound Pipelines (`prepare_context`, `verified_patch`):** Consolidates multi-step workflows into single-pass atomic MCP operations (**`250 µs`** context prep, **`1.51 ms`** verified atomic patch).
+- **📜 Bidirectional Intent & Contract Synthesis (`synthesize_contract`, `verify_contract`):** Proactively projects developer intent into strict type contract scaffolding and verifies implementation fidelity in **`15.27 µs`**.
+- **💥 Blast-Radius Impact Analyzer (`get_blast_radius`):** Computes downstream caller chains, affected file sets, and breaking change risk scores across 100+ modules in **`6.43 µs`**.
+- **🔍 Cross-Module Symbol Resolver (`resolve_symbol`):** Resolves module import hierarchies, origin files, byte spans, signatures, and doc-comments in **`4.99 µs`**.
+- **🎯 Intent-Driven Context Slicing (`extract_intent_slice`):** Isolates target symbols and their direct dependencies with **>73% context token savings** in **`95.42 µs`**.
+- **🛡️ Deterministic 11-Pass AST Safety Firewall (`check_safety`):** Enforces 11 formal invariants in **`24.70 µs`**.
+- **🏛️ Architectural Health Auditor (`detect_import_cycles`, `find_orphan_exports`):** Finds circular dependency loops (`A -> B -> C -> A`) and dead exports.
 
 ---
 
@@ -117,34 +116,42 @@ flowchart TD
 
 ---
 
-## 🛡️ The 6 Deterministic Safety Invariants
+## 🛡️ The 11 Deterministic Safety Invariants
 
 ```mermaid
 graph LR
     A[AstGuard Invariant Passes] --> B[1. Delimiter Balance: Dijkstra stack scan]
-    A --> C[2. Concurrency: std::sync::Mutex across .await points]
-    A --> D[3. Arithmetic: Unguarded division by variable]
-    A --> E[4. Bounds: Array index without length checks]
-    A --> F[5. Panics: Unguarded .unwrap() and .expect()]
-    A --> G[6. ReDoS: Exponential nested regex quantifiers]
+    A --> C[2. JSX/HTML Tag Balance: Stack-based opening/closing/void]
+    A --> D[3. React Rules of Hooks: Catch conditional use* calls]
+    A --> E[4. Secret Leak Guard: Reject server env in use client]
+    A --> F[5. XSS Injection: Block raw dangerouslySetInnerHTML]
+    A --> G[6. Concurrency: std::sync::Mutex across .await points]
+    A --> H[7. Arithmetic: Unguarded division by variable]
+    A --> I[8. Bounds: Array index without length checks]
+    A --> J[9. Panics: Unguarded .unwrap and .expect]
+    A --> K[10. ReDoS: Exponential nested regex quantifiers]
+    A --> L[11. Null Dereference: TS/JS deep access without ?.]
 ```
 
-1. **Delimiter Balance (Dijkstra Algorithm):** Performs a linear single-pass stack scan validating matching closure for `{}` `[]` `()` across raw byte streams while safely ignoring string literals and escapes.
-2. **Async Mutex Concurrency Trap:** Prevents blocking `std::sync::Mutex` locks across asynchronous `.await` suspension points to eliminate thread pool exhaustion and deadlocks.
-3. **Division-by-Zero Protection:** Proves the denominator is non-zero ($y \neq 0$) before permitting arithmetic evaluation.
-4. **Array Bounds Protection:** Ensures array and slice indexing (`arr[i]`) is preceded by length assertions or safe accessors (`.get()`).
-5. **Unsafe Unwrap Guard:** Eliminates panic-inducing direct `.unwrap()` or `.expect()` calls lacking prior safety checks (`is_some()`, `is_ok()`, or `if let`).
-6. **ReDoS Catastrophic Backtracking Guard:** Identifies polynomial and exponential nested quantifiers (such as `(a+)+$`) that freeze CPU execution threads.
+1. **Delimiter Balance (Dijkstra Linear Stack Algorithm):** Byte-accurate scanner verifying balanced closures `{}` `[]` `()` while ignoring comments (`//`, `/* */`), raw strings (`r#"..."#`), template literals (`` `...` ``), and char literals (`'c'`).
+2. **Dijkstra JSX & HTML Tag Balancing:** Verifies matching opening/closing tags, JSX fragments (`<>...</>`), and self-closing void elements (`<img />`, `<input />`, `<br />`, `<Component />`).
+3. **React Rules of Hooks Guard:** Catches React hooks (`useState`, `useEffect`, `useMemo`, `useCallback`, `useContext`, `useRef`, custom `use*`) invoked inside `if` statements, ternary expressions, or loops.
+4. **Client/Server Secret Leak Guard:** Flags un-prefixed server secrets (e.g. `process.env.DATABASE_URL`, `STRIPE_SECRET_KEY`) inside `"use client"` components.
+5. **Unsafe Raw HTML Injection Guard:** Flags `dangerouslySetInnerHTML` without DOMPurify/sanitization wrappers.
+6. **Async Mutex Concurrency Deadlock Guard:** Prevents holding `std::sync::Mutex` locks across `.await` points.
+7. **Division-by-Zero Protection:** Proves the denominator is non-zero ($y \neq 0$) before permitting division.
+8. **Array Bounds Protection:** Ensures array indexing (`arr[i]`) is preceded by length assertions or `.get()`.
+9. **Unsafe Unwrap Guard:** Eliminates panic-inducing `.unwrap()` / `.expect()` calls lacking prior safety checks.
+10. **ReDoS Catastrophic Backtracking Guard:** Identifies nested regex quantifiers causing $O(2^n)$ CPU freezing.
+11. **Deep Property Null Dereference:** Catches multi-level object dereferences (`a.b.c.d`) without optional chaining (`?.`).
 
 ---
 
-## 🔌 Model Context Protocol (MCP) Integration
+## 🔌 Model Context Protocol (MCP) Integration (12 Native Tools)
 
-`locus-engine` ships with a built-in, zero-dependency MCP server running over stdio (JSON-RPC 2.0). It connects directly to **Claude Code**, **Claude Desktop**, **Cursor**, **Windsurf**, and **VS Code**.
+`locus-engine` exposes a native, zero-dependency JSON-RPC 2.0 stdio MCP server for **Claude Code**, **Cursor**, **Windsurf**, **VS Code**, and **Antigravity**.
 
-### ⚙️ Claude Desktop / Cursor Configuration
-
-Add `locus` to your `claude_desktop_config.json` or Cursor MCP settings:
+### ⚙️ Configuration (`mcp_config.json` / `claude_desktop_config.json`)
 
 ```json
 {
@@ -157,18 +164,26 @@ Add `locus` to your `claude_desktop_config.json` or Cursor MCP settings:
 }
 ```
 
-### 🛠️ Exposed MCP Tools:
+### 🛠️ Complete MCP Tools Reference (v1.0.0)
 
-| MCP Tool Name | Arguments | Capabilities & Output |
-| :--- | :--- | :--- |
-| **`check_safety`** | `{"code": "string", "path": "string"}` | Executes 6-pass AST verification; returns passed/failed report with exact violation byte span. |
-| **`skeletonize`** | `{"code": "string", "language": "rust\|typescript\|python"}` | Strips implementation bodies while preserving all signatures, saving >50-80% LLM context tokens. |
-| **`patch_symbol`** | `{"source": "string", "symbol": "string", "new_code": "string", "language": "string"}` | Performs surgical byte-offset node replacement of a target function/struct without rewriting unchanged code. |
-| **`index_graph`** | `{"path": "string"}` | Recursively indexes project directory, extracts definitions, and maps cross-file dependency edges. |
+| MCP Tool Name | Category | Primary Function & Output |
+| :--- | :---: | :--- |
+| **`prepare_context`** | ⚡ **Compound** | Consolidates AST skeleton, intent context slice, blast radius, and resolved symbol in a single pass (**`<0.25ms`**). |
+| **`verified_patch`** | 🛡️ **Compound** | Atomically validates pre-patch safety -> in-memory AST symbol replace -> validates full file -> writes to disk. |
+| **`synthesize_contract`** | 📜 Contract | Projects developer intent into strict type scaffolding and invariant checklists before code generation. |
+| **`verify_contract`** | 🔄 Verification | Proves generated code satisfies synthesized contracts with 0 invariant violations and signature fidelity. |
+| **`get_blast_radius`** | 💥 Blast Radius | Traverses reverse dependencies to calculate downstream caller chains, affected files, and risk scores. |
+| **`resolve_symbol`** | 🔍 Graph | Resolves symbol origin file, byte coordinates, type signatures, and doc-comments across module paths. |
+| **`find_references`** | 📍 References | Locates all inbound call sites, imports, and usages of a symbol across the entire indexed workspace. |
+| **`extract_intent_slice`** | 🎯 Slicing | Extracts a minimal AST context slice containing only the target symbol and direct dependencies. |
+| **`check_safety`** | 🛡️ Safety | 11-pass deterministic safety verification (<0.05ms) returning exact byte-level counterexamples. |
+| **`skeletonize`** | 🗜️ Compression | Extracts AST skeleton preserving signatures and imports with **`>73-85%`** token reduction. |
+| **`patch_symbol`** | ✂️ Patching | Surgically replaces a named function, struct, component, or event handler without rewriting files. |
+| **`index_graph`** | 🧠 Graph | Indexes directory into cross-file SymbolGraph and reports architectural health (cycles & orphan exports). |
 
 ---
 
-## 🚀 Quick Install & CLI Usage
+## 🚀 Quick Install & CLI Reference
 
 ### Instant One-Line Installation
 
@@ -182,26 +197,36 @@ curl -fsSL https://raw.githubusercontent.com/ahmadshady747-create/LOCUS/main/scr
 irm https://raw.githubusercontent.com/ahmadshady747-create/LOCUS/main/scripts/install.ps1 | iex
 ```
 
-#### 📦 Via Cargo (crates.io):
-```bash
-cargo install locus-engine
-```
-
 ---
 
-### Command Line Reference
+### 💻 CLI Commands (9 Built-In Commands)
 
 ```bash
 # 1. Deterministic Safety Verification (<0.05ms)
-locus check src/lib.rs
+locus check src/models.rs
 
-# 2. Index Workspace Symbol Graph & Measure Token Savings
+# 2. Proactive Intent Contract Synthesis
+locus contract "user authentication session with jwt" --lang rust --target src/auth.rs
+
+# 3. Context Slicing around Target Symbol
+locus slice UserProfileCard src/components/UserProfileCard.tsx --depth 2
+
+# 4. Context Skeleton Extraction (>73% Token Savings)
+locus skeleton src/Dashboard.tsx
+
+# 5. Index Workspace Graph & Audit Architectural Health (Cycles & Dead Exports)
 locus graph src/
 
-# 3. Surgical Symbol Patching
+# 6. Analyze Blast-Radius Impact & Breaking Change Risk
+locus impact AstGuard src/guard.rs --depth 3
+
+# 7. Locate All Symbol References Across Project
+locus refs AstGuard src/
+
+# 8. Surgical Byte-Span AST Patching
 locus patch src/models.rs --symbol User --with "pub struct User { pub id: u64 }"
 
-# 4. Start Model Context Protocol (MCP) stdio Server
+# 9. Start MCP JSON-RPC 2.0 stdio Server
 locus mcp
 ```
 
@@ -213,27 +238,37 @@ Add `locus-engine` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-locus-engine = "0.1.0"
+locus-engine = "1.0.0"
 ```
 
 ```rust
-use locus_engine::{AstGuard, AstDiffEngine, SymbolGraph, AstContextCache, Language};
+use locus_engine::{
+    AstGuard, AstDiffEngine, ContractSynthesizer, ContextSlicer, SymbolGraph, Language,
+};
 
 fn main() {
-    let code = "pub fn safe_calc(a: f64, b: f64) -> f64 { if b != 0.0 { a / b } else { 0.0 } }";
+    // 1. Proactive Contract Synthesis (15µs)
+    let contract = ContractSynthesizer::synthesize(
+        "payment checkout session",
+        Some("src/checkout.rs"),
+        None,
+        Language::Rust,
+    );
 
-    // 1. Instant Invariant Safety Verification (9µs)
+    // 2. Instant Invariant Safety Verification (24µs)
+    let code = "pub fn add(a: i32, b: i32) -> i32 { a + b }";
     let report = AstGuard::verify(code);
     assert!(report.passed);
 
-    // 2. Surgical Context Compression (>70% Token Savings)
+    // 3. Surgical Context Compression (>73% Token Savings)
     let skeleton = AstDiffEngine::skeletonize(code, Language::Rust);
     println!("Compressed Skeleton:\n{}", skeleton);
 
-    // 3. Fast In-Memory FIPS 180-4 SHA-256 LRU Cache
-    let cache = AstContextCache::new(1024);
-    let hash = cache.insert(code, skeleton, 1);
-    assert_eq!(hash.len(), 64);
+    // 4. Cross-File Symbol Graph & Blast Radius Analysis
+    let mut graph = SymbolGraph::new();
+    graph.index_file_content("src/lib.rs", code, Language::Rust);
+    let blast = graph.calculate_blast_radius("add", Some("src/lib.rs"), 2);
+    println!("Blast Radius Risk: [{}]", blast.risk_score);
 }
 ```
 
@@ -243,7 +278,7 @@ fn main() {
 
 ```text
 d:\LOCUS\
-├── Cargo.toml                  # Single-crate package manifest (locus bin + locus_engine lib)
+├── Cargo.toml                  # Single-crate package manifest (v1.0.0 GA)
 ├── LICENSE                     # Business Source License 1.1 with explicit As-Is disclaimer
 ├── README.md                   # Comprehensive technical documentation & benchmarks
 ├── SPEC.md                     # Detailed formal specification of core algorithms
@@ -252,16 +287,18 @@ d:\LOCUS\
 │   ├── install.sh              # One-line curl installer for Linux & macOS
 │   └── install.ps1             # One-line PowerShell installer for Windows
 ├── tests/
-│   └── benchmarks.rs           # High-precision benchmark & stress test suite
+│   └── benchmarks.rs           # 15 high-precision benchmark & stress test suites
 └── src/
-    ├── lib.rs                  # Public library exports
-    ├── main.rs                 # CLI entrypoint (check, graph, patch, mcp commands)
-    ├── types.rs                # Core models (SymbolNode, SymbolEdge, VerificationReport)
-    ├── guard.rs                # 6-pass deterministic AST safety invariants engine
-    ├── cache.rs                # Pure FIPS 180-4 SHA-256 LRU cache with monotonic indexing
-    ├── graph.rs                # Polyglot symbol graph & dependency resolver (Rust, TS, Python)
-    ├── diff.rs                 # Surgical byte-span AST patching and skeletonizer
-    └── mcp.rs                  # Zero-dependency stdio Model Context Protocol (MCP) server
+    ├── lib.rs                  # Public library crate re-exports
+    ├── main.rs                 # CLI entrypoint (9 production commands)
+    ├── types.rs                # Core data models, enums, AST nodes, and Language Display
+    ├── guard.rs                # 11-pass deterministic AST safety invariant firewall
+    ├── contract.rs             # Proactive Intent Contract Synthesizer & Verifier
+    ├── slice.rs                # Intent-driven AST Context Slicer (>73% token reduction)
+    ├── graph.rs                # Polyglot SymbolGraph, Path Resolver & Blast Radius Engine
+    ├── diff.rs                 # Surgical byte-span AST patching and component skeletonizer
+    ├── cache.rs                # Pure FIPS 180-4 SHA-256 LRU digest cache
+    └── mcp.rs                  # 12-tool Model Context Protocol (MCP) JSON-RPC 2.0 server
 ```
 
 ---

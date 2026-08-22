@@ -57,7 +57,7 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                     },
                     "serverInfo": {
                         "name": "locus-engine",
-                        "version": "0.3.3"
+                        "version": "1.0.0"
                     }
                 }
             });
@@ -1029,7 +1029,7 @@ mod tests {
         let parsed: Value = serde_json::from_str(&resp).unwrap();
         assert_eq!(parsed["id"], 1);
         assert_eq!(parsed["result"]["serverInfo"]["name"], "locus-engine");
-        assert_eq!(parsed["result"]["serverInfo"]["version"], "0.3.3");
+        assert_eq!(parsed["result"]["serverInfo"]["version"], "1.0.0");
     }
 
     #[test]

@@ -12,7 +12,7 @@ use locus_engine::{
 
 fn print_usage() {
     eprintln!(
-        r#"locus-engine CLI v0.3.1
+        r#"locus-engine CLI v1.0.0
 
 USAGE:
     locus check <file_path>

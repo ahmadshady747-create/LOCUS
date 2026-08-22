@@ -2,11 +2,11 @@
 name: locus-engine
 description: >-
   High-throughput compound MCP pipelines, deterministic AST safety verification, surgical symbol patching,
-  context compression, cross-file dependency graph resolver, and blast-radius impact analyzer powered by native locus-engine (v0.3.3).
+  context compression, cross-file dependency graph resolver, and blast-radius impact analyzer powered by native locus-engine (v1.0.0).
   Activate this skill when generating, reviewing, patching, or analyzing code in Rust, TypeScript, TSX, JSX, Svelte, Astro, Vue, or Python.
 ---
 
-# LOCUS Engine Skill Guide (v0.3.3)
+# LOCUS Engine Skill Guide (v1.0.0)
 
 Use this skill to leverage the native `locus` MCP server and CLI for sub-millisecond invariant safety verification, compound context preparation, blast-radius impact analysis, and verified atomic patching across Backend (Rust, Python) and Frontend (TSX, JSX, Svelte, Astro, Vue) ecosystems.
 
