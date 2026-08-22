@@ -216,8 +216,9 @@ impl AstGuard {
     /// Dijkstra JSX and HTML tag balance scanner.
     /// Verifies opening/closing tags, fragments `<>...</>`, and self-closing tags `<img />`.
     pub fn check_jsx_tags(source: &str) -> Option<String> {
-        // Fast skip if code contains no JSX/HTML tags
-        if !source.contains('<') || !source.contains('>') {
+        // Fast skip if code contains no JSX/HTML tags or is Rust
+        let is_rust = source.contains("fn ") || source.contains("impl ") || source.contains("pub struct ") || source.contains("pub enum ") || source.contains("use std::");
+        if is_rust || !source.contains('<') || !source.contains('>') {
             return None;
         }
 
@@ -461,6 +462,10 @@ impl AstGuard {
             let before = &source[..cap.start()];
             let last_newline = before.rfind('\n').unwrap_or(0);
             let line = &before[last_newline..];
+            let trimmed = line.trim_start();
+            if trimmed.starts_with("//") || trimmed.starts_with('*') {
+                continue;
+            }
             if !line.contains("is_some()") && !line.contains("is_ok()") && !line.contains("if let") {
                 return Some(format!(
                     "Unsafe `.unwrap()` at byte {} without prior guard.",
@@ -472,7 +477,15 @@ impl AstGuard {
     }
 
     fn check_async_mutex(source: &str) -> Option<String> {
-        if RE_SYNC_MUTEX.is_match(source) && RE_AWAIT.is_match(source) {
+        let has_mutex = source.lines().any(|line| {
+            let trimmed = line.trim();
+            !trimmed.starts_with("//") && !trimmed.starts_with('*') && RE_SYNC_MUTEX.is_match(trimmed)
+        });
+        let has_await = source.lines().any(|line| {
+            let trimmed = line.trim();
+            !trimmed.starts_with("//") && !trimmed.starts_with('*') && RE_AWAIT.is_match(trimmed)
+        });
+        if has_mutex && has_await {
             return Some(
                 "std::sync::Mutex used in async context with .await — use tokio::sync::Mutex instead.".to_string()
             );
@@ -481,7 +494,14 @@ impl AstGuard {
     }
 
     fn check_redos(source: &str) -> Option<String> {
-        if let Some(m) = RE_REDOS.find(source) {
+        for m in RE_REDOS.find_iter(source) {
+            let before = &source[..m.start()];
+            let last_newline = before.rfind('\n').unwrap_or(0);
+            let line = &before[last_newline..];
+            let trimmed = line.trim_start();
+            if trimmed.starts_with("//") || trimmed.starts_with('*') {
+                continue;
+            }
             return Some(format!(
                 "Catastrophic ReDoS pattern at byte {}: `{}` — nested quantifiers cause O(2^n) backtracking.",
                 m.start(), &m.as_str()[..m.as_str().len().min(60)]
@@ -491,11 +511,23 @@ impl AstGuard {
     }
 
     fn check_null_deref(source: &str) -> Option<String> {
+        let is_rust = source.contains("fn ") || source.contains("impl ") || source.contains("pub struct ") || source.contains("pub enum ");
+        if is_rust {
+            return None;
+        }
+
         if RE_NULL_DEREF.is_match(source) && !RE_OPTIONAL_CHAIN.is_match(source) {
-            if source.contains(": string") || source.contains("const ") || source.contains("interface ") {
+            if source.contains(": string") || source.contains("interface ") || source.contains("export ") {
                 for m in RE_NULL_DEREF.find_iter(source) {
                     let s = m.as_str();
                     if s.starts_with("process.env") || s.starts_with("import.meta") {
+                        continue;
+                    }
+                    let before = &source[..m.start()];
+                    let last_newline = before.rfind('\n').unwrap_or(0);
+                    let line = &before[last_newline..];
+                    let trimmed = line.trim_start();
+                    if trimmed.starts_with("//") || trimmed.starts_with('*') {
                         continue;
                     }
                     return Some(format!(
