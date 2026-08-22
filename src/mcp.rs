@@ -5,9 +5,11 @@ use std::io::{BufRead, Write};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+use crate::contract::ContractSynthesizer;
 use crate::diff::AstDiffEngine;
 use crate::graph::SymbolGraph;
 use crate::guard::AstGuard;
+use crate::slice::ContextSlicer;
 use crate::types::Language;
 
 #[derive(Debug, Deserialize)]
@@ -160,6 +162,91 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                                 }
                             },
                             "required": ["path"]
+                        }
+                    },
+                    {
+                        "name": "synthesize_contract",
+                        "description": "Proactively projects developer intent into strict type contract scaffolding and safety invariant checklists before code generation.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "intent": {
+                                    "type": "string",
+                                    "description": "Developer intent or feature specification"
+                                },
+                                "target_path": {
+                                    "type": "string",
+                                    "description": "Optional target file path (e.g. src/auth.rs, src/UserCard.tsx)"
+                                },
+                                "context": {
+                                    "type": "string",
+                                    "description": "Optional surrounding context or existing types"
+                                },
+                                "language": {
+                                    "type": "string",
+                                    "enum": ["rust", "typescript", "javascript", "tsx", "jsx", "svelte", "astro", "vue", "python"],
+                                    "description": "Target programming language"
+                                }
+                            },
+                            "required": ["intent"]
+                        }
+                    },
+                    {
+                        "name": "extract_intent_slice",
+                        "description": "Extracts a minimal, high-density AST context slice containing only the target symbol and its direct dependencies up to N degrees of separation.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "symbol": {
+                                    "type": "string",
+                                    "description": "Name of the target symbol/function/component to slice around"
+                                },
+                                "path": {
+                                    "type": "string",
+                                    "description": "Optional file path or directory on disk"
+                                },
+                                "code": {
+                                    "type": "string",
+                                    "description": "Optional raw source code to slice from"
+                                },
+                                "depth": {
+                                    "type": "integer",
+                                    "description": "Dependency traversal depth (default: 2)"
+                                },
+                                "language": {
+                                    "type": "string",
+                                    "enum": ["rust", "typescript", "javascript", "tsx", "jsx", "svelte", "astro", "vue", "python"],
+                                    "description": "Programming language"
+                                }
+                            },
+                            "required": ["symbol"]
+                        }
+                    },
+                    {
+                        "name": "verify_contract",
+                        "description": "Bidirectionally verifies that generated code satisfies the synthesized architectural contract with zero safety violations and complete signature fidelity.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "contract": {
+                                    "type": "object",
+                                    "description": "Synthesized IntentContract JSON object"
+                                },
+                                "intent": {
+                                    "type": "string",
+                                    "description": "Alternative: developer intent string if contract object is not provided"
+                                },
+                                "generated_code": {
+                                    "type": "string",
+                                    "description": "Implementation code produced by the AI model"
+                                },
+                                "language": {
+                                    "type": "string",
+                                    "enum": ["rust", "typescript", "javascript", "tsx", "jsx", "svelte", "astro", "vue", "python"],
+                                    "description": "Programming language"
+                                }
+                            },
+                            "required": ["generated_code"]
                         }
                     }
                 ]
@@ -353,6 +440,136 @@ fn execute_tool(name: &str, args: &Value) -> Value {
             })
         }
 
+        "synthesize_contract" => {
+            let intent = match args.get("intent").and_then(|s| s.as_str()) {
+                Some(i) => i,
+                None => {
+                    return json!({
+                        "content": [{"type": "text", "text": "Error: 'intent' argument is required"}],
+                        "isError": true
+                    });
+                }
+            };
+            let target_path = args.get("target_path").and_then(|s| s.as_str());
+            let context = args.get("context").and_then(|s| s.as_str());
+            let lang_str = args.get("language").and_then(|s| s.as_str()).unwrap_or("rust");
+            let lang = Language::from_extension(lang_str);
+
+            let contract = ContractSynthesizer::synthesize(intent, target_path, context, lang);
+            json!({
+                "content": [
+                    {
+                        "type": "text",
+                        "text": serde_json::to_string_pretty(&contract).unwrap_or_default()
+                    }
+                ]
+            })
+        }
+
+        "extract_intent_slice" => {
+            let symbol = match args.get("symbol").and_then(|s| s.as_str()) {
+                Some(s) => s,
+                None => {
+                    return json!({
+                        "content": [{"type": "text", "text": "Error: 'symbol' argument is required"}],
+                        "isError": true
+                    });
+                }
+            };
+            let depth = args.get("depth").and_then(|d| d.as_u64()).unwrap_or(2) as usize;
+            let lang_str = args.get("language").and_then(|s| s.as_str()).unwrap_or("rust");
+            let lang = Language::from_extension(lang_str);
+
+            if let Some(code) = args.get("code").and_then(|s| s.as_str()) {
+                let slice = ContextSlicer::slice_from_source(code, symbol, depth, lang);
+                json!({
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": serde_json::to_string_pretty(&slice).unwrap_or_default()
+                        }
+                    ]
+                })
+            } else if let Some(path) = args.get("path").and_then(|s| s.as_str()) {
+                let path_obj = std::path::Path::new(path);
+                if path_obj.is_dir() {
+                    let graph = SymbolGraph::index_directory(path);
+                    let slice = ContextSlicer::slice_from_graph(&graph, symbol, depth);
+                    json!({
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": serde_json::to_string_pretty(&slice).unwrap_or_default()
+                            }
+                        ]
+                    })
+                } else {
+                    let code = match fs::read_to_string(path) {
+                        Ok(c) => c,
+                        Err(e) => {
+                            return json!({
+                                "content": [{"type": "text", "text": format!("Error reading path '{}': {}", path, e)}],
+                                "isError": true
+                            });
+                        }
+                    };
+                    let ext = path_obj.extension().and_then(|e| e.to_str()).unwrap_or(lang_str);
+                    let file_lang = Language::from_extension(ext);
+                    let slice = ContextSlicer::slice_from_source(&code, symbol, depth, file_lang);
+                    json!({
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": serde_json::to_string_pretty(&slice).unwrap_or_default()
+                            }
+                        ]
+                    })
+                }
+            } else {
+                json!({
+                    "content": [{"type": "text", "text": "Error: Either 'code' or 'path' must be provided for intent slicing"}],
+                    "isError": true
+                })
+            }
+        }
+
+        "verify_contract" => {
+            let generated_code = match args.get("generated_code").and_then(|s| s.as_str()) {
+                Some(c) => c,
+                None => {
+                    return json!({
+                        "content": [{"type": "text", "text": "Error: 'generated_code' argument is required"}],
+                        "isError": true
+                    });
+                }
+            };
+
+            let contract = if let Some(c_val) = args.get("contract") {
+                if let Ok(c) = serde_json::from_value::<crate::contract::IntentContract>(c_val.clone()) {
+                    c
+                } else {
+                    let intent_str = c_val.get("intent").and_then(|s| s.as_str()).unwrap_or("general implementation");
+                    let lang_str = args.get("language").and_then(|s| s.as_str()).unwrap_or("rust");
+                    ContractSynthesizer::synthesize(intent_str, None, None, Language::from_extension(lang_str))
+                }
+            } else if let Some(intent) = args.get("intent").and_then(|s| s.as_str()) {
+                let lang_str = args.get("language").and_then(|s| s.as_str()).unwrap_or("rust");
+                ContractSynthesizer::synthesize(intent, None, None, Language::from_extension(lang_str))
+            } else {
+                ContractSynthesizer::synthesize("verified component", None, None, Language::Rust)
+            };
+
+            let report = ContractSynthesizer::verify_contract(&contract, generated_code);
+            json!({
+                "content": [
+                    {
+                        "type": "text",
+                        "text": serde_json::to_string_pretty(&report).unwrap_or_default()
+                    }
+                ]
+            })
+        }
+
         _ => {
             json!({
                 "content": [{"type": "text", "text": format!("Unknown tool: {}", name)}],
@@ -417,13 +634,79 @@ mod tests {
         let resp = handle_json_rpc_message(list_req).expect("Response expected");
         let parsed: Value = serde_json::from_str(&resp).unwrap();
         let tools = parsed["result"]["tools"].as_array().expect("Tools array");
-        assert_eq!(tools.len(), 4);
+        assert_eq!(tools.len(), 7);
 
         let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
         assert!(names.contains(&"check_safety"));
         assert!(names.contains(&"skeletonize"));
         assert!(names.contains(&"patch_symbol"));
         assert!(names.contains(&"index_graph"));
+        assert!(names.contains(&"synthesize_contract"));
+        assert!(names.contains(&"extract_intent_slice"));
+        assert!(names.contains(&"verify_contract"));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_synthesize_contract() {
+        let call_req = r#"{
+            "jsonrpc": "2.0",
+            "id": 6,
+            "method": "tools/call",
+            "params": {
+                "name": "synthesize_contract",
+                "arguments": {
+                    "intent": "async payment checkout session",
+                    "language": "rust"
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(call_req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("PaymentCheckoutRequest"));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_extract_intent_slice() {
+        let call_req = r#"{
+            "jsonrpc": "2.0",
+            "id": 7,
+            "method": "tools/call",
+            "params": {
+                "name": "extract_intent_slice",
+                "arguments": {
+                    "symbol": "render",
+                    "code": "pub struct Widget; impl Widget { pub fn render(&self) {} }",
+                    "language": "rust",
+                    "depth": 1
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(call_req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("render"));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_verify_contract() {
+        let call_req = r#"{
+            "jsonrpc": "2.0",
+            "id": 8,
+            "method": "tools/call",
+            "params": {
+                "name": "verify_contract",
+                "arguments": {
+                    "intent": "compute score",
+                    "generated_code": "pub struct ComputeScoreRequest; pub struct ComputeScoreResponse; pub async fn compute_score(req: &ComputeScoreRequest) -> Result<ComputeScoreResponse, ()> { Ok(ComputeScoreResponse) }",
+                    "language": "rust"
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(call_req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("\"passed\": true"));
     }
 
     #[test]

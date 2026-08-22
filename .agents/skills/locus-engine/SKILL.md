@@ -12,7 +12,19 @@ Use this skill to leverage the native `locus` MCP server and CLI for sub-millise
 
 ## Available MCP Tools:
 
-1. `check_safety`:
+1. `synthesize_contract`:
+   - **When to use:** **PROACTIVE STEP (Before generating code)**. Pass the developer's intent and target path to generate strict type scaffolding (request/response structs, error enums, trait bounds, interfaces) and invariant checklists.
+   - **Usage:** Call `synthesize_contract` with `{"intent": "...", "target_path": "src/auth.rs", "language": "rust|tsx|python"}`.
+
+2. `extract_intent_slice`:
+   - **When to use:** When you need a minimal, high-density AST context slice containing *only* the target symbol and its direct dependencies up to N degrees of separation, eliminating 100% of architectural noise.
+   - **Usage:** Call `extract_intent_slice` with `{"symbol": "UserProfileCard", "code": "...", "depth": 2}` or `{"symbol": "...", "path": "src/"}`.
+
+3. `verify_contract`:
+   - **When to use:** **BIDIRECTIONAL VERIFICATION STEP (After generating code)**. Verifies that generated code strictly preserves agreed signatures, types, and implements all requirements with zero safety violations.
+   - **Usage:** Call `verify_contract` with `{"intent": "...", "generated_code": "...", "language": "rust|tsx|python"}`.
+
+4. `check_safety`:
    - **When to use:** Before proposing or committing any code changes in Rust, TSX, JSX, Svelte, Astro, Vue, TypeScript, JavaScript, or Python.
    - **Invariants Checked:**
      - Dijkstra delimiter balance (`{}`, `[]`, `()`)
@@ -28,14 +40,14 @@ Use this skill to leverage the native `locus` MCP server and CLI for sub-millise
      - Deep property access without optional chaining (`?.`)
    - **Usage:** Call `check_safety` with `{"code": "..."}` or `{"path": "src/Component.tsx"}`.
 
-2. `skeletonize`:
+5. `skeletonize`:
    - **When to use:** When you need to inspect component architecture, types, or API signatures without wasting token budget on JSX render trees or large implementation bodies (>70-85% token reduction).
    - **Usage:** Call `skeletonize` with `{"code": "...", "language": "rust|typescript|javascript|tsx|jsx|svelte|astro|vue|python"}`.
 
-3. `patch_symbol`:
+6. `patch_symbol`:
    - **When to use:** When making surgical updates to a single function, struct, component, or event handler (e.g. `handleSubmit`) without regenerating whole files.
    - **Usage:** Call `patch_symbol` with `{"source": "...", "symbol": "handleSubmit", "new_code": "...", "language": "tsx"}`.
 
-4. `index_graph`:
+7. `index_graph`:
    - **When to use:** When mapping symbol definitions, component exports, hooks, imports, traits, and call hierarchies across an entire project directory.
    - **Usage:** Call `index_graph` with `{"path": "src/"}`.

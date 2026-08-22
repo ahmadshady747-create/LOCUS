@@ -6,7 +6,9 @@ use std::path::Path;
 use std::process;
 use std::time::Instant;
 
-use locus_engine::{run_stdio_server, AstDiffEngine, AstGuard, Language, SymbolGraph};
+use locus_engine::{
+    run_stdio_server, AstDiffEngine, AstGuard, ContextSlicer, ContractSynthesizer, Language, SymbolGraph,
+};
 
 fn print_usage() {
     eprintln!(
@@ -15,6 +17,8 @@ fn print_usage() {
 USAGE:
     locus check <file_path>
     locus skeleton <file_path>
+    locus contract <intent> [--lang <lang>] [--target <file_path>]
+    locus slice <symbol_name> <file_path> [--depth <depth>]
     locus graph <directory_path>
     locus patch <file_path> --symbol <symbol_name> --with <new_code>
     locus mcp
@@ -22,6 +26,8 @@ USAGE:
 COMMANDS:
     check       Run deterministic safety verification on a target source file
     skeleton    Extract high-level AST skeleton preserving imports, types, and component signatures
+    contract    Synthesize strict type scaffolding and safety invariant checklist from intent
+    slice       Extract high-density intent context slice around a target symbol
     graph       Index directory, construct cross-file symbol graph, and display token savings
     patch       Surgically replace a named AST symbol with new code
     mcp         Start MCP server over stdio for Claude Code, Cursor, and Antigravity
@@ -42,6 +48,63 @@ fn main() {
                 eprintln!("MCP Server error: {}", e);
                 process::exit(1);
             }
+        }
+
+        "contract" => {
+            if args.len() < 3 {
+                eprintln!("Usage: locus contract <intent> [--lang <lang>] [--target <target_path>]");
+                process::exit(1);
+            }
+            let intent = &args[2];
+            let mut lang = Language::Rust;
+            let mut target_path: Option<&str> = None;
+
+            let mut i = 3;
+            while i < args.len() {
+                match args[i].as_str() {
+                    "--lang" if i + 1 < args.len() => {
+                        lang = Language::from_extension(&args[i + 1]);
+                        i += 2;
+                    }
+                    "--target" if i + 1 < args.len() => {
+                        target_path = Some(&args[i + 1]);
+                        i += 2;
+                    }
+                    _ => i += 1,
+                }
+            }
+
+            let contract = ContractSynthesizer::synthesize(intent, target_path, None, lang);
+            println!("{}", contract.type_scaffolding);
+            println!("// Invariant Checklist:");
+            for inv in contract.invariant_checklist {
+                println!("// - {}", inv);
+            }
+        }
+
+        "slice" => {
+            if args.len() < 4 {
+                eprintln!("Usage: locus slice <symbol_name> <file_path> [--depth <depth>]");
+                process::exit(1);
+            }
+            let symbol = &args[2];
+            let file_path = &args[3];
+            let mut depth = 2usize;
+            if args.len() > 5 && args[4] == "--depth" {
+                depth = args[5].parse().unwrap_or(2);
+            }
+
+            let content = match fs::read_to_string(file_path) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("Error reading '{}': {}", file_path, e);
+                    process::exit(1);
+                }
+            };
+            let ext = Path::new(file_path).extension().and_then(|e| e.to_str()).unwrap_or("");
+            let lang = Language::from_extension(ext);
+            let slice = ContextSlicer::slice_from_source(&content, symbol, depth, lang);
+            println!("{}", slice.sliced_code);
         }
 
         "skeleton" => {

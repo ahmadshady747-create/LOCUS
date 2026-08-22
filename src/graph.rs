@@ -14,19 +14,19 @@ use crate::types::{fnv1a_64, EdgeKind, Language, SymbolEdge, SymbolKind, SymbolN
 
 // Rust patterns
 static RE_RS_FN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^(?:pub(?:\([^)]+\))?\s+)?(?:async\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
+    Regex::new(r"(?m)^\s*(?:pub(?:\([^)]+\))?\s+)?(?:async\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
 });
 static RE_RS_STRUCT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^(?:pub(?:\([^)]+\))?\s+)?struct\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
+    Regex::new(r"(?m)^\s*(?:pub(?:\([^)]+\))?\s+)?struct\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
 });
 static RE_RS_ENUM: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^(?:pub(?:\([^)]+\))?\s+)?enum\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
+    Regex::new(r"(?m)^\s*(?:pub(?:\([^)]+\))?\s+)?enum\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
 });
 static RE_RS_TRAIT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^(?:pub(?:\([^)]+\))?\s+)?trait\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
+    Regex::new(r"(?m)^\s*(?:pub(?:\([^)]+\))?\s+)?trait\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
 });
 static RE_RS_TYPE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^(?:pub(?:\([^)]+\))?\s+)?type\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
+    Regex::new(r"(?m)^\s*(?:pub(?:\([^)]+\))?\s+)?type\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
 });
 
 // TypeScript / JavaScript / Frontend patterns
@@ -48,10 +48,10 @@ static RE_TS_TYPE: LazyLock<Regex> = LazyLock::new(|| {
 
 // Python patterns
 static RE_PY_DEF: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^(?:async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
+    Regex::new(r"(?m)^\s*(?:async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
 });
 static RE_PY_CLASS: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^class\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
+    Regex::new(r"(?m)^\s*class\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
 });
 
 // ---------------------------------------------------------------------------

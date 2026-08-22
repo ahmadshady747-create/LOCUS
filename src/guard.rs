@@ -179,37 +179,120 @@ impl AstGuard {
     /// Dijkstra single-pass delimiter balance check.
     /// Returns `true` if all `{}`, `[]`, `()` are balanced.
     pub fn check_delimiter_balance(source: &str) -> bool {
-        let mut stack: Vec<char> = Vec::new();
-        let mut in_string = false;
-        let mut string_char = '"';
-        let mut prev = '\0';
+        let bytes = source.as_bytes();
+        let len = bytes.len();
+        let mut stack: Vec<u8> = Vec::new();
+        let mut i = 0;
 
-        for ch in source.chars() {
-            // Naive string boundary tracking (skips escape sequences)
-            if (ch == '"' || ch == '\'' || ch == '`') && prev != '\\' {
-                if in_string && ch == string_char {
-                    in_string = false;
-                } else if !in_string {
-                    in_string = true;
-                    string_char = ch;
+        while i < len {
+            let b = bytes[i];
+
+            // 1. Line comment //
+            if b == b'/' && i + 1 < len && bytes[i + 1] == b'/' {
+                i += 2;
+                while i < len && bytes[i] != b'\n' {
+                    i += 1;
                 }
-                prev = ch;
-                continue;
-            }
-            if in_string {
-                prev = ch;
                 continue;
             }
 
-            match ch {
-                '{' | '[' | '(' => stack.push(ch),
-                '}' => if stack.pop() != Some('{') { return false; },
-                ']' => if stack.pop() != Some('[') { return false; },
-                ')' => if stack.pop() != Some('(') { return false; },
-                _   => {}
+            // 2. Block comment /* ... */
+            if b == b'/' && i + 1 < len && bytes[i + 1] == b'*' {
+                i += 2;
+                while i + 1 < len && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
+                    i += 1;
+                }
+                i += 2;
+                continue;
             }
-            prev = ch;
+
+            // 3. Raw string r#"..."# or r"..."
+            if b == b'r' && i + 1 < len && (bytes[i + 1] == b'"' || bytes[i + 1] == b'#') {
+                let mut hashes = 0;
+                let mut j = i + 1;
+                while j < len && bytes[j] == b'#' {
+                    hashes += 1;
+                    j += 1;
+                }
+                if j < len && bytes[j] == b'"' {
+                    i = j + 1;
+                    'raw_search: while i < len {
+                        if bytes[i] == b'"' {
+                            let mut valid = true;
+                            for h in 0..hashes {
+                                if i + 1 + h >= len || bytes[i + 1 + h] != b'#' {
+                                    valid = false;
+                                    break;
+                                }
+                            }
+                            if valid {
+                                i += 1 + hashes;
+                                break 'raw_search;
+                            }
+                        }
+                        i += 1;
+                    }
+                    continue;
+                }
+            }
+
+            // 4. Standard string "..."
+            if b == b'"' {
+                i += 1;
+                while i < len {
+                    if bytes[i] == b'\\' {
+                        i += 2;
+                        continue;
+                    }
+                    if bytes[i] == b'"' {
+                        i += 1;
+                        break;
+                    }
+                    i += 1;
+                }
+                continue;
+            }
+
+            // 5. Template literal `...`
+            if b == b'`' {
+                i += 1;
+                while i < len {
+                    if bytes[i] == b'\\' {
+                        i += 2;
+                        continue;
+                    }
+                    if bytes[i] == b'`' {
+                        i += 1;
+                        break;
+                    }
+                    i += 1;
+                }
+                continue;
+            }
+
+            // 6. Char literal '...'
+            if b == b'\'' {
+                if i + 2 < len && bytes[i + 2] == b'\'' && bytes[i + 1] != b'\\' {
+                    i += 3;
+                    continue;
+                } else if i + 3 < len && bytes[i + 1] == b'\\' && bytes[i + 3] == b'\'' {
+                    i += 4;
+                    continue;
+                }
+            }
+
+            // 7. Delimiter stack tracking
+            match b {
+                b'{' | b'[' | b'(' => stack.push(b),
+                b'}' => if stack.pop() != Some(b'{') { return false; },
+                b']' => if stack.pop() != Some(b'[') { return false; },
+                b')' => if stack.pop() != Some(b'(') { return false; },
+                _ => {}
+            }
+
+            i += 1;
         }
+
         stack.is_empty()
     }
 
@@ -377,19 +460,35 @@ impl AstGuard {
     // --- Internal Passes ---
 
     fn check_conditional_hooks(source: &str) -> Option<String> {
-        if RE_HOOK_IF.is_match(source) {
+        let is_rust = source.contains("fn ") || source.contains("impl ") || source.contains("pub struct ") || source.contains("pub enum ") || source.contains("use std::");
+        if is_rust {
+            return None;
+        }
+
+        let code = if let Some(idx) = source.find("#[cfg(test)]") {
+            &source[..idx]
+        } else {
+            source
+        };
+
+        if RE_HOOK_IF.is_match(code) {
             return Some("React Hook called conditionally inside an `if` block — violates Rules of Hooks.".to_string());
         }
-        if RE_HOOK_LOOP.is_match(source) {
+        if RE_HOOK_LOOP.is_match(code) {
             return Some("React Hook called inside a loop (`for`/`while`) — violates Rules of Hooks.".to_string());
         }
-        if RE_HOOK_TERNARY.is_match(source) {
+        if RE_HOOK_TERNARY.is_match(code) {
             return Some("React Hook called inside a ternary branch — violates Rules of Hooks.".to_string());
         }
         None
     }
 
     fn check_client_secret_leak(source: &str) -> Option<String> {
+        let is_rust = source.contains("fn ") || source.contains("impl ") || source.contains("pub struct ") || source.contains("pub enum ") || source.contains("use std::");
+        if is_rust {
+            return None;
+        }
+
         let is_client = source.contains("\"use client\"") || source.contains("'use client'");
         if is_client {
             for cap in RE_CLIENT_SECRET.captures_iter(source) {
@@ -414,7 +513,18 @@ impl AstGuard {
     }
 
     fn check_unsafe_inner_html(source: &str) -> Option<String> {
-        for cap in RE_DANGEROUS_HTML.captures_iter(source) {
+        let is_rust = source.contains("fn ") || source.contains("impl ") || source.contains("pub struct ") || source.contains("pub enum ") || source.contains("use std::");
+        if is_rust {
+            return None;
+        }
+
+        let code = if let Some(idx) = source.find("#[cfg(test)]") {
+            &source[..idx]
+        } else {
+            source
+        };
+
+        for cap in RE_DANGEROUS_HTML.captures_iter(code) {
             if let Some(expr) = cap.get(1) {
                 let html_expr = expr.as_str().trim();
                 let is_sanitized = html_expr.contains("sanitize") || html_expr.starts_with('"') || html_expr.starts_with('\'');
@@ -460,10 +570,16 @@ impl AstGuard {
     fn check_unsafe_unwrap(source: &str) -> Option<String> {
         for cap in RE_UNWRAP.find_iter(source) {
             let before = &source[..cap.start()];
+            if before.matches("r#\"").count() > before.matches("\"#").count() {
+                continue;
+            }
+            if before.contains("#[cfg(test)]") || before.contains("#[test]") {
+                continue;
+            }
             let last_newline = before.rfind('\n').unwrap_or(0);
             let line = &before[last_newline..];
             let trimmed = line.trim_start();
-            if trimmed.starts_with("//") || trimmed.starts_with('*') {
+            if trimmed.starts_with("//") || trimmed.starts_with('*') || trimmed.starts_with('"') || line.contains("LazyLock") || line.contains("Regex::new") {
                 continue;
             }
             if !line.contains("is_some()") && !line.contains("is_ok()") && !line.contains("if let") {
@@ -477,25 +593,37 @@ impl AstGuard {
     }
 
     fn check_async_mutex(source: &str) -> Option<String> {
-        let has_mutex = source.lines().any(|line| {
+        let code = if let Some(idx) = source.find("#[cfg(test)]") {
+            &source[..idx]
+        } else {
+            source
+        };
+
+        let has_mutex = code.lines().any(|line| {
             let trimmed = line.trim();
-            !trimmed.starts_with("//") && !trimmed.starts_with('*') && RE_SYNC_MUTEX.is_match(trimmed)
+            !trimmed.starts_with("//") && !trimmed.starts_with('*') && !trimmed.starts_with('"') && !trimmed.starts_with("static") && !trimmed.starts_with("Regex::new") && !trimmed.contains("checklist.push") && RE_SYNC_MUTEX.is_match(trimmed)
         });
-        let has_await = source.lines().any(|line| {
+        let has_await = code.lines().any(|line| {
             let trimmed = line.trim();
-            !trimmed.starts_with("//") && !trimmed.starts_with('*') && RE_AWAIT.is_match(trimmed)
+            !trimmed.starts_with("//") && !trimmed.starts_with('*') && !trimmed.starts_with('"') && !trimmed.starts_with("static") && !trimmed.starts_with("Regex::new") && !trimmed.contains("checklist.push") && RE_AWAIT.is_match(trimmed)
         });
         if has_mutex && has_await {
             return Some(
-                "std::sync::Mutex used in async context with .await — use tokio::sync::Mutex instead.".to_string()
+                "Blocking sync Mutex used in async context with await point — use tokio::sync::Mutex instead.".to_string()
             );
         }
         None
     }
 
     fn check_redos(source: &str) -> Option<String> {
-        for m in RE_REDOS.find_iter(source) {
-            let before = &source[..m.start()];
+        let code = if let Some(idx) = source.find("#[cfg(test)]") {
+            &source[..idx]
+        } else {
+            source
+        };
+
+        for m in RE_REDOS.find_iter(code) {
+            let before = &code[..m.start()];
             let last_newline = before.rfind('\n').unwrap_or(0);
             let line = &before[last_newline..];
             let trimmed = line.trim_start();

@@ -3,7 +3,8 @@
 use std::time::Instant;
 use locus_engine::mcp::handle_json_rpc_message;
 use locus_engine::{
-    AstContextCache, AstDiffEngine, AstGuard, Language, SymbolGraph, ViolationKind,
+    AstContextCache, AstDiffEngine, AstGuard, ContextSlicer, ContractSynthesizer, Language,
+    SymbolGraph, ViolationKind,
 };
 
 #[test]
@@ -365,4 +366,120 @@ export function ComplexDashboard({ tenantId, metrics, onRefresh }: ComplexDashbo
     );
 
     assert!(compression_ratio > 65.0, "Expected >65% compression ratio, got {:.1}%", compression_ratio);
+}
+
+#[test]
+fn bench_contract_synthesis_latency() {
+    let intents = [
+        ("async user authentication with oauth2 and jwt tokens", Language::Rust),
+        ("UserProfileCard component with badge avatar and onSave", Language::Tsx),
+        ("paginate and filter database records by tenant", Language::Python),
+        ("useDebounce custom hook with delay and cancel", Language::Tsx),
+    ];
+
+    let start = Instant::now();
+    let iterations = 1000;
+
+    for i in 0..iterations {
+        let (intent, lang) = intents[i % intents.len()];
+        let contract = ContractSynthesizer::synthesize(intent, None, None, lang);
+        assert!(!contract.primary_symbol.is_empty());
+        assert!(!contract.type_scaffolding.is_empty());
+        assert!(!contract.invariant_checklist.is_empty());
+    }
+
+    let elapsed = start.elapsed();
+    let avg_us = (elapsed.as_secs_f64() * 1_000_000.0) / (iterations as f64);
+
+    println!(
+        "📜 ContractSynthesizer Benchmark: {} synthesis cycles in {:.3}ms (Average: {:.2}µs / synthesis)",
+        iterations,
+        elapsed.as_secs_f64() * 1000.0,
+        avg_us
+    );
+    assert!(avg_us < 2000.0, "Contract synthesis took too long: {:.2}µs", avg_us);
+}
+
+#[test]
+fn bench_intent_context_slicing_latency() {
+    let code = r#"
+import React, { useState, useEffect } from 'react';
+
+export interface HeaderProps { title: string; }
+export function Header({ title }: HeaderProps) { return <h1>{title}</h1>; }
+
+export interface UserListProps { users: string[]; onSelect: (u: string) => void; }
+export function UserList({ users, onSelect }: UserListProps) {
+    return <ul>{users.map(u => <li key={u} onClick={() => onSelect(u)}>{u}</li>)}</ul>;
+}
+
+export interface FooterProps { copyright: string; }
+export function Footer({ copyright }: FooterProps) { return <footer>{copyright}</footer>; }
+"#;
+
+    let start = Instant::now();
+    let iterations = 1000;
+
+    for _ in 0..iterations {
+        let slice = ContextSlicer::slice_from_source(code, "UserList", 2, Language::Tsx);
+        assert_eq!(slice.target_symbol, "UserList");
+        assert!(slice.sliced_code.contains("UserList"));
+    }
+
+    let elapsed = start.elapsed();
+    let avg_us = (elapsed.as_secs_f64() * 1_000_000.0) / (iterations as f64);
+
+    println!(
+        "🎯 ContextSlicer Benchmark: {} slicing cycles in {:.3}ms (Average: {:.2}µs / slice)",
+        iterations,
+        elapsed.as_secs_f64() * 1000.0,
+        avg_us
+    );
+    assert!(avg_us < 2000.0, "Context slicing took too long: {:.2}µs", avg_us);
+}
+
+#[test]
+fn bench_bidirectional_contract_verification() {
+    let contract = ContractSynthesizer::synthesize(
+        "payment session",
+        Some("src/checkout.rs"),
+        None,
+        Language::Rust,
+    );
+
+    let valid_impl = r#"
+pub struct PaymentSessionRequest {
+    pub amount: u64,
+}
+pub struct PaymentSessionResponse {
+    pub session_id: String,
+}
+pub enum PaymentSessionError {
+    Declined,
+}
+pub async fn payment_session(
+    req: &PaymentSessionRequest
+) -> Result<PaymentSessionResponse, PaymentSessionError> {
+    Ok(PaymentSessionResponse { session_id: "sess_123".to_string() })
+}
+"#;
+
+    let start = Instant::now();
+    let iterations = 500;
+
+    for _ in 0..iterations {
+        let report = ContractSynthesizer::verify_contract(&contract, valid_impl);
+        assert!(report.passed);
+    }
+
+    let elapsed = start.elapsed();
+    let avg_us = (elapsed.as_secs_f64() * 1_000_000.0) / (iterations as f64);
+
+    println!(
+        "🔄 Bidirectional Contract Verification Benchmark: {} verifications in {:.3}ms (Average: {:.2}µs / round-trip)",
+        iterations,
+        elapsed.as_secs_f64() * 1000.0,
+        avg_us
+    );
+    assert!(avg_us < 2000.0, "Contract verification took too long: {:.2}µs", avg_us);
 }
