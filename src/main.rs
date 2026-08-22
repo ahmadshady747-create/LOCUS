@@ -1,4 +1,4 @@
-//! locus CLI - High-speed deterministic verification and AST semantic tooling.
+//! locus CLI — High-speed deterministic verification and AST semantic tooling.
 
 use std::env;
 use std::fs;

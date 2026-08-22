@@ -1,4 +1,4 @@
-//! AstGuard - 6-pass deterministic safety invariant verifier.
+//! AstGuard — 6-pass deterministic safety invariant verifier.
 //!
 //! All regex patterns are compiled once at startup via `std::sync::LazyLock`
 //! and reused across calls. Each `verify()` call typically completes in <0.05ms.
@@ -11,7 +11,7 @@ use regex::Regex;
 use crate::types::{VerificationReport, ViolationKind};
 
 // ---------------------------------------------------------------------------
-// Compiled regex patterns (LazyLock - initialised once, reused forever)
+// Compiled regex patterns (LazyLock — initialised once, reused forever)
 // ---------------------------------------------------------------------------
 
 /// Matches variable division: identifier or single letter divided by variable.
@@ -377,13 +377,13 @@ impl AstGuard {
 
     fn check_conditional_hooks(source: &str) -> Option<String> {
         if RE_HOOK_IF.is_match(source) {
-            return Some("React Hook called conditionally inside an `if` block - violates Rules of Hooks.".to_string());
+            return Some("React Hook called conditionally inside an `if` block — violates Rules of Hooks.".to_string());
         }
         if RE_HOOK_LOOP.is_match(source) {
-            return Some("React Hook called inside a loop (`for`/`while`) - violates Rules of Hooks.".to_string());
+            return Some("React Hook called inside a loop (`for`/`while`) — violates Rules of Hooks.".to_string());
         }
         if RE_HOOK_TERNARY.is_match(source) {
-            return Some("React Hook called inside a ternary branch - violates Rules of Hooks.".to_string());
+            return Some("React Hook called inside a ternary branch — violates Rules of Hooks.".to_string());
         }
         None
     }
@@ -419,7 +419,7 @@ impl AstGuard {
                 let is_sanitized = html_expr.contains("sanitize") || html_expr.starts_with('"') || html_expr.starts_with('\'');
                 if !is_sanitized {
                     return Some(format!(
-                        "Unsanitized `dangerouslySetInnerHTML` with raw `{}` - vulnerable to XSS injection.",
+                        "Unsanitized `dangerouslySetInnerHTML` with raw `{}` — vulnerable to XSS injection.",
                         html_expr
                     ));
                 }
@@ -435,7 +435,7 @@ impl AstGuard {
             if !source.contains("!= 0") && !source.contains("!= 0.0") && !source.contains("assert!") {
                 if let Some(m) = RE_DIV_BY_ZERO.find(source) {
                     return Some(format!(
-                        "Unguarded division at byte {}: `{}` - denominator may be zero.",
+                        "Unguarded division at byte {}: `{}` — denominator may be zero.",
                         m.start(), m.as_str()
                     ));
                 }
@@ -474,7 +474,7 @@ impl AstGuard {
     fn check_async_mutex(source: &str) -> Option<String> {
         if RE_SYNC_MUTEX.is_match(source) && RE_AWAIT.is_match(source) {
             return Some(
-                "std::sync::Mutex used in async context with .await - use tokio::sync::Mutex instead.".to_string()
+                "std::sync::Mutex used in async context with .await — use tokio::sync::Mutex instead.".to_string()
             );
         }
         None
@@ -483,7 +483,7 @@ impl AstGuard {
     fn check_redos(source: &str) -> Option<String> {
         if let Some(m) = RE_REDOS.find(source) {
             return Some(format!(
-                "Catastrophic ReDoS pattern at byte {}: `{}` - nested quantifiers cause O(2^n) backtracking.",
+                "Catastrophic ReDoS pattern at byte {}: `{}` — nested quantifiers cause O(2^n) backtracking.",
                 m.start(), &m.as_str()[..m.as_str().len().min(60)]
             ));
         }
@@ -499,7 +499,7 @@ impl AstGuard {
                         continue;
                     }
                     return Some(format!(
-                        "Deep property access without optional chaining at byte {}: `{}` - use `?.`",
+                        "Deep property access without optional chaining at byte {}: `{}` — use `?.`",
                         m.start(), s
                     ));
                 }
@@ -602,7 +602,7 @@ const RE: &str = "(a+)+$";
         let start = Instant::now();
         let _r = AstGuard::verify(source);
         let elapsed = start.elapsed().as_secs_f64() * 1000.0;
-        assert!(elapsed < 50.0, "verify() took {}ms - expected <50ms in debug", elapsed);
+        assert!(elapsed < 50.0, "verify() took {}ms — expected <50ms in debug", elapsed);
     }
 
     #[test]

@@ -1,4 +1,4 @@
-//! AstDiffEngine - Surgical node-level byte-span AST patching and skeleton extraction.
+//! AstDiffEngine — Surgical node-level byte-span AST patching and skeleton extraction.
 
 use thiserror::Error;
 use crate::graph::SymbolGraph;

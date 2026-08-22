@@ -1,4 +1,4 @@
-//! SymbolGraph - Cross-file semantic dependency and symbol resolver (Rust, TS/JS, Python).
+//! SymbolGraph — Cross-file semantic dependency and symbol resolver (Rust, TS/JS, Python).
 
 use std::collections::HashMap;
 use std::fs;
@@ -261,7 +261,7 @@ impl SymbolGraph {
                     let is_char_lit = (rest.chars().nth(1) == Some('\'') && rest.chars().next() != Some('\\'))
                         || (rest.starts_with('\\') && rest.chars().nth(2) == Some('\''));
                     if !is_char_lit && (prev == '&' || prev == '<' || prev == ',' || prev == ' ' || prev == '(') {
-                        // Rust lifetime like &'a or <'a> - ignore
+                        // Rust lifetime like &'a or <'a> — ignore
                         prev = ch;
                         continue;
                     }
@@ -315,7 +315,7 @@ impl SymbolGraph {
                     let is_char_lit = (rest.chars().nth(1) == Some('\'') && rest.chars().next() != Some('\\'))
                         || (rest.starts_with('\\') && rest.chars().nth(2) == Some('\''));
                     if !is_char_lit && (prev == '&' || prev == '<' || prev == ',' || prev == ' ' || prev == '(') {
-                        // Rust lifetime like &'a or <'a> - ignore
+                        // Rust lifetime like &'a or <'a> — ignore
                         prev = ch;
                         continue;
                     }
