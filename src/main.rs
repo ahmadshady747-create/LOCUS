@@ -12,7 +12,7 @@ use locus_engine::{
 
 fn print_usage() {
     eprintln!(
-        r#"locus-engine CLI v0.3.0
+        r#"locus-engine CLI v0.3.1
 
 USAGE:
     locus check <file_path>
@@ -20,6 +20,8 @@ USAGE:
     locus contract <intent> [--lang <lang>] [--target <file_path>]
     locus slice <symbol_name> <file_path> [--depth <depth>]
     locus graph <directory_path>
+    locus impact <symbol_name> <file_or_dir> [--depth <depth>]
+    locus refs <symbol_name> <directory_path>
     locus patch <file_path> --symbol <symbol_name> --with <new_code>
     locus mcp
 
@@ -28,7 +30,9 @@ COMMANDS:
     skeleton    Extract high-level AST skeleton preserving imports, types, and component signatures
     contract    Synthesize strict type scaffolding and safety invariant checklist from intent
     slice       Extract high-density intent context slice around a target symbol
-    graph       Index directory, construct cross-file symbol graph, and display token savings
+    graph       Index directory, construct cross-file symbol graph, and report architectural health
+    impact      Analyze blast-radius impact and breaking change risk of modifying a symbol
+    refs        Find all inbound references, imports, and call sites of a symbol across the project
     patch       Surgically replace a named AST symbol with new code
     mcp         Start MCP server over stdio for Claude Code, Cursor, and Antigravity
 "#
@@ -173,22 +177,104 @@ fn main() {
                 process::exit(1);
             }
             let dir_path = &args[2];
-            let start = Instant::now();
             let graph = SymbolGraph::index_directory(dir_path);
-            let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
-
-            let file_count = graph.file_to_symbols.len();
-            let symbol_count = graph.nodes.len();
-            let edge_count = graph.edges.len();
+            let health = graph.analyze_architectural_health();
 
             println!("\n+-------------------------------------------------------------+");
             println!("|                   LOCUS SYMBOL GRAPH INDEX                  |");
             println!("+-------------------------------------------------------------+");
             println!(" Indexed Root: {}", dir_path);
-            println!(" Total Indexed Files: {}", file_count);
-            println!(" Extracted AST Symbols: {}", symbol_count);
-            println!(" Cross-Symbol Dependency Edges: {}", edge_count);
-            println!(" Indexing Latency: {:.2} ms", elapsed_ms);
+            println!(" Total Indexed Files: {}", health.total_files);
+            println!(" Extracted AST Symbols: {}", health.total_symbols);
+            println!(" Cross-Symbol Dependency Edges: {}", health.total_edges);
+            println!(" Circular Dependency Cycles: {}", health.circular_dependencies.len());
+            if !health.circular_dependencies.is_empty() {
+                for (idx, cycle) in health.circular_dependencies.iter().enumerate() {
+                    println!("   Cycle #{}: {}", idx + 1, cycle.join(" -> "));
+                }
+            }
+            println!(" Orphan and Unused Exports: {}", health.orphan_exports.len());
+            if !health.orphan_exports.is_empty() {
+                for orphan in health.orphan_exports.iter().take(5) {
+                    println!("   - {}", orphan);
+                }
+                if health.orphan_exports.len() > 5 {
+                    println!("   ... and {} more", health.orphan_exports.len() - 5);
+                }
+            }
+            println!(" Indexing Latency: {:.2} ms", health.latency_ms);
+            println!("+-------------------------------------------------------------+\n");
+        }
+
+        "impact" => {
+            if args.len() < 4 {
+                eprintln!("Usage: locus impact <symbol_name> <file_or_directory> [--depth <depth>]");
+                process::exit(1);
+            }
+            let symbol = &args[2];
+            let target = &args[3];
+            let mut depth = 2usize;
+            if args.len() > 5 && args[4] == "--depth" {
+                depth = args[5].parse().unwrap_or(2);
+            }
+
+            let path_obj = Path::new(target);
+            let (graph, file_opt) = if path_obj.is_dir() {
+                (SymbolGraph::index_directory(target), None)
+            } else {
+                let dir = path_obj.parent().unwrap_or(Path::new("."));
+                let g = SymbolGraph::index_directory(dir);
+                let rel = path_obj.to_string_lossy().replace('\\', "/");
+                (g, Some(rel))
+            };
+
+            let report = graph.calculate_blast_radius(symbol, file_opt.as_deref(), depth);
+
+            println!("\n+-------------------------------------------------------------+");
+            println!("|                  LOCUS BLAST RADIUS REPORT                  |");
+            println!("+-------------------------------------------------------------+");
+            println!(" Target Symbol: {}", report.symbol);
+            println!(" Origin File: {}", report.origin_file);
+            println!(" Breaking Change Risk: [{}]", report.risk_score);
+            println!(" Inbound Reference Sites: {}", report.reference_count);
+            println!(" Direct Dependents ({}):", report.direct_dependents.len());
+            for dep in &report.direct_dependents {
+                println!("   - {}", dep);
+            }
+            println!(" Transitive Dependents ({}):", report.transitive_dependents.len());
+            for dep in &report.transitive_dependents {
+                println!("   - {}", dep);
+            }
+            println!(" Impacted Files Set ({}):", report.affected_files.len());
+            for f in &report.affected_files {
+                println!("   * {}", f);
+            }
+            println!(" Analysis Latency: {:.4} ms", report.latency_ms);
+            println!("+-------------------------------------------------------------+\n");
+        }
+
+        "refs" => {
+            if args.len() < 4 {
+                eprintln!("Usage: locus refs <symbol_name> <directory_path>");
+                process::exit(1);
+            }
+            let symbol = &args[2];
+            let dir_path = &args[3];
+
+            let start = Instant::now();
+            let graph = SymbolGraph::index_directory(dir_path);
+            let refs = graph.find_references(symbol);
+            let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
+
+            println!("\n+-------------------------------------------------------------+");
+            println!("|                   LOCUS SYMBOL REFERENCES                   |");
+            println!("+-------------------------------------------------------------+");
+            println!(" Target Symbol: {}", symbol);
+            println!(" Total Occurrences Found: {}", refs.len());
+            println!(" Query Latency: {:.4} ms", elapsed_ms);
+            for (idx, r) in refs.iter().enumerate() {
+                println!(" {:2}. {}:{} | {}", idx + 1, r.file, r.line, r.context_snippet);
+            }
             println!("+-------------------------------------------------------------+\n");
         }
 
@@ -249,19 +335,20 @@ fn main() {
             match AstDiffEngine::patch(&content, &symbol, &replacement, lang) {
                 Ok(patched) => {
                     if let Err(e) = fs::write(file_path, &patched) {
-                        eprintln!("Error writing patched output to '{}': {}", file_path, e);
+                        eprintln!("Error writing '{}': {}", file_path, e);
                         process::exit(1);
                     }
-                    println!("[SUCCESS] Symbol '{}' surgically patched in {}", symbol, file_path);
+                    println!("Successfully patched symbol '{}' in '{}'", symbol, file_path);
                 }
                 Err(e) => {
-                    eprintln!("[ERROR] Patch failed: {}", e);
+                    eprintln!("Patch failed: {}", e);
                     process::exit(1);
                 }
             }
         }
 
         _ => {
+            eprintln!("Unknown command: '{}'", args[1]);
             print_usage();
             process::exit(1);
         }

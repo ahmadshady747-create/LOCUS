@@ -483,3 +483,105 @@ pub async fn payment_session(
     );
     assert!(avg_us < 2000.0, "Contract verification took too long: {:.2}µs", avg_us);
 }
+
+#[test]
+fn bench_cross_module_symbol_resolution() {
+    let mut graph = SymbolGraph::new();
+
+    let rust_a = "pub struct DatabasePool { pub max_conn: u32 }\npub fn init_db() -> DatabasePool { DatabasePool { max_conn: 10 } }";
+    let rust_b = "use crate::DatabasePool;\npub struct UserRepository { pub db: DatabasePool }\npub fn get_user(repo: &UserRepository) {}";
+    let rust_c = "use crate::UserRepository;\npub async fn handle_auth(repo: UserRepository) {}";
+
+    graph.index_file_content("src/db.rs", rust_a, Language::Rust);
+    graph.index_file_content("src/repo.rs", rust_b, Language::Rust);
+    graph.index_file_content("src/auth.rs", rust_c, Language::Rust);
+    graph.index_references();
+    graph.resolve_edges();
+
+    let start = Instant::now();
+    let iterations = 1000;
+
+    for _ in 0..iterations {
+        let res = graph.resolve_symbol("DatabasePool", Some("src/db.rs"));
+        assert!(res.is_some());
+        let res_c = graph.resolve_symbol("UserRepository", Some("src/auth.rs"));
+        assert!(res_c.is_some());
+    }
+
+    let elapsed = start.elapsed();
+    let avg_us = (elapsed.as_secs_f64() * 1_000_000.0) / (iterations as f64);
+
+    println!(
+        "🔍 Cross-Module Symbol Resolution Benchmark: {} lookups in {:.3}ms (Average: {:.2}µs / query)",
+        iterations,
+        elapsed.as_secs_f64() * 1000.0,
+        avg_us
+    );
+    assert!(avg_us < 100.0, "Cross-module resolution took too long: {:.2}µs", avg_us);
+}
+
+#[test]
+fn bench_blast_radius_impact_analysis() {
+    let mut graph = SymbolGraph::new();
+
+    for i in 0..100 {
+        let code = format!(
+            "pub struct Service_{} {{ pub id: u64 }}\npub fn run_service_{}(s: Service_{}) {{}}\nuse crate::Service_{};\n",
+            i, i, i, if i > 0 { i - 1 } else { 0 }
+        );
+        graph.index_file_content(&format!("src/service_{}.rs", i), &code, Language::Rust);
+    }
+    graph.index_references();
+    graph.resolve_edges();
+
+    let start = Instant::now();
+    let iterations = 500;
+
+    for _ in 0..iterations {
+        let report = graph.calculate_blast_radius("Service_0", Some("src/service_0.rs"), 3);
+        assert_eq!(report.symbol, "Service_0");
+    }
+
+    let elapsed = start.elapsed();
+    let avg_us = (elapsed.as_secs_f64() * 1_000_000.0) / (iterations as f64);
+
+    println!(
+        "💥 Blast Radius Impact Analyzer Benchmark: {} calculations across 100 modules in {:.3}ms (Average: {:.2}µs / analysis)",
+        iterations,
+        elapsed.as_secs_f64() * 1000.0,
+        avg_us
+    );
+    assert!(avg_us < 500.0, "Blast radius analysis took too long: {:.2}µs", avg_us);
+}
+
+#[test]
+fn bench_circular_dependency_detection() {
+    let mut graph = SymbolGraph::new();
+
+    for i in 0..50 {
+        let next = (i + 1) % 50;
+        graph.file_imports.insert(
+            format!("src/module_{}.ts", i),
+            vec![format!("src/module_{}.ts", next)],
+        );
+    }
+
+    let start = Instant::now();
+    let iterations = 200;
+
+    for _ in 0..iterations {
+        let cycles = graph.detect_import_cycles();
+        assert!(!cycles.is_empty(), "Expected to detect 50-node circular loop");
+    }
+
+    let elapsed = start.elapsed();
+    let avg_us = (elapsed.as_secs_f64() * 1_000_000.0) / (iterations as f64);
+
+    println!(
+        "🔄 Circular Dependency Cycle Detection Benchmark: {} checks in {:.3}ms (Average: {:.2}µs / check)",
+        iterations,
+        elapsed.as_secs_f64() * 1000.0,
+        avg_us
+    );
+    assert!(avg_us < 1000.0, "Cycle detection took too long: {:.2}µs", avg_us);
+}

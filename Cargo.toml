@@ -1,6 +1,6 @@
 [package]
 name = "locus-engine"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 authors = ["Ahmed Shadi"]
 description = "Deterministic AST Verification, Cross-File Semantic Graph & Surgical Patching Engine in Pure Rust"

@@ -71,6 +71,73 @@ pub struct SymbolEdge {
     pub edge_type: EdgeKind,
 }
 
+/// Risk level classification for code modifications and architectural refactors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RiskScore {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+impl std::fmt::Display for RiskScore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            RiskScore::Low => "LOW",
+            RiskScore::Medium => "MEDIUM",
+            RiskScore::High => "HIGH",
+            RiskScore::Critical => "CRITICAL",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+/// An exact call-site reference or import occurrence of a symbol.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SymbolReference {
+    pub file: String,
+    pub line: usize,
+    pub byte_offset: usize,
+    pub context_snippet: String,
+}
+
+/// Fully resolved symbol metadata across module boundaries.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResolvedSymbol {
+    pub name: String,
+    pub kind: SymbolKind,
+    pub file: String,
+    pub byte_start: usize,
+    pub byte_end: usize,
+    pub signature: String,
+    pub doc_comment: Option<String>,
+    pub is_exported: bool,
+}
+
+/// Impact analysis and blast-radius report for a modified symbol.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlastRadiusReport {
+    pub symbol: String,
+    pub origin_file: String,
+    pub direct_dependents: Vec<String>,
+    pub transitive_dependents: Vec<String>,
+    pub affected_files: Vec<String>,
+    pub risk_score: RiskScore,
+    pub reference_count: usize,
+    pub latency_ms: f64,
+}
+
+/// Workspace-wide architectural health audit report.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchitecturalHealth {
+    pub circular_dependencies: Vec<Vec<String>>,
+    pub orphan_exports: Vec<String>,
+    pub total_files: usize,
+    pub total_symbols: usize,
+    pub total_edges: usize,
+    pub latency_ms: f64,
+}
+
 // ---------------------------------------------------------------------------
 // Verification Types
 // ---------------------------------------------------------------------------

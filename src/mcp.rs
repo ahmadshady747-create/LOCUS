@@ -55,7 +55,7 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                     },
                     "serverInfo": {
                         "name": "locus-engine",
-                        "version": "0.3.0"
+                        "version": "0.3.1"
                     }
                 }
             });
@@ -152,7 +152,7 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                     },
                     {
                         "name": "index_graph",
-                        "description": "Recursively indexes a directory tree into a cross-file SymbolGraph and computes token savings.",
+                        "description": "Recursively indexes a directory tree into a cross-file SymbolGraph, linking references and computing token savings.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -247,6 +247,72 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                                 }
                             },
                             "required": ["generated_code"]
+                        }
+                    },
+                    {
+                        "name": "resolve_symbol",
+                        "description": "Resolves full symbol definition metadata, origin file, byte coordinates, signatures, and doc-comments across module paths.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "symbol": {
+                                    "type": "string",
+                                    "description": "Name of the symbol to resolve (e.g. AstGuard, UserProfileCard)"
+                                },
+                                "from_file": {
+                                    "type": "string",
+                                    "description": "Optional calling file context (e.g. src/main.rs)"
+                                },
+                                "target_path": {
+                                    "type": "string",
+                                    "description": "Workspace root directory to search (default: .)"
+                                }
+                            },
+                            "required": ["symbol"]
+                        }
+                    },
+                    {
+                        "name": "get_blast_radius",
+                        "description": "Calculates the blast-radius impact of modifying a symbol, identifying direct and transitive dependent files, caller sites, reference counts, and breaking change risk score.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "symbol": {
+                                    "type": "string",
+                                    "description": "Target symbol to calculate modification blast-radius for"
+                                },
+                                "file": {
+                                    "type": "string",
+                                    "description": "Optional origin file path"
+                                },
+                                "path": {
+                                    "type": "string",
+                                    "description": "Workspace root directory (default: .)"
+                                },
+                                "depth": {
+                                    "type": "integer",
+                                    "description": "Transitive dependency depth (default: 2)"
+                                }
+                            },
+                            "required": ["symbol"]
+                        }
+                    },
+                    {
+                        "name": "find_references",
+                        "description": "Finds all inbound call sites, imports, and references for a symbol across the entire indexed workspace.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "symbol": {
+                                    "type": "string",
+                                    "description": "Symbol name to look up references for"
+                                },
+                                "target_path": {
+                                    "type": "string",
+                                    "description": "Workspace root directory (default: .)"
+                                }
+                            },
+                            "required": ["symbol"]
                         }
                     }
                 ]
@@ -570,6 +636,84 @@ fn execute_tool(name: &str, args: &Value) -> Value {
             })
         }
 
+        "resolve_symbol" => {
+            let symbol = match args.get("symbol").and_then(|s| s.as_str()) {
+                Some(s) => s,
+                None => {
+                    return json!({
+                        "content": [{"type": "text", "text": "Error: 'symbol' argument is required"}],
+                        "isError": true
+                    });
+                }
+            };
+            let from_file = args.get("from_file").and_then(|s| s.as_str());
+            let target_path = args.get("target_path").and_then(|s| s.as_str()).unwrap_or(".");
+
+            let graph = SymbolGraph::index_directory(target_path);
+            let resolved = graph.resolve_symbol(symbol, from_file);
+
+            json!({
+                "content": [
+                    {
+                        "type": "text",
+                        "text": serde_json::to_string_pretty(&resolved).unwrap_or_default()
+                    }
+                ]
+            })
+        }
+
+        "get_blast_radius" => {
+            let symbol = match args.get("symbol").and_then(|s| s.as_str()) {
+                Some(s) => s,
+                None => {
+                    return json!({
+                        "content": [{"type": "text", "text": "Error: 'symbol' argument is required"}],
+                        "isError": true
+                    });
+                }
+            };
+            let file = args.get("file").and_then(|s| s.as_str());
+            let target_path = args.get("path").and_then(|s| s.as_str()).unwrap_or(".");
+            let depth = args.get("depth").and_then(|d| d.as_u64()).unwrap_or(2) as usize;
+
+            let graph = SymbolGraph::index_directory(target_path);
+            let report = graph.calculate_blast_radius(symbol, file, depth);
+
+            json!({
+                "content": [
+                    {
+                        "type": "text",
+                        "text": serde_json::to_string_pretty(&report).unwrap_or_default()
+                    }
+                ]
+            })
+        }
+
+        "find_references" => {
+            let symbol = match args.get("symbol").and_then(|s| s.as_str()) {
+                Some(s) => s,
+                None => {
+                    return json!({
+                        "content": [{"type": "text", "text": "Error: 'symbol' argument is required"}],
+                        "isError": true
+                    });
+                }
+            };
+            let target_path = args.get("target_path").and_then(|s| s.as_str()).unwrap_or(".");
+
+            let graph = SymbolGraph::index_directory(target_path);
+            let refs = graph.find_references(symbol);
+
+            json!({
+                "content": [
+                    {
+                        "type": "text",
+                        "text": serde_json::to_string_pretty(&refs).unwrap_or_default()
+                    }
+                ]
+            })
+        }
+
         _ => {
             json!({
                 "content": [{"type": "text", "text": format!("Unknown tool: {}", name)}],
@@ -616,7 +760,7 @@ mod tests {
         let parsed: Value = serde_json::from_str(&resp).unwrap();
         assert_eq!(parsed["id"], 1);
         assert_eq!(parsed["result"]["serverInfo"]["name"], "locus-engine");
-        assert_eq!(parsed["result"]["serverInfo"]["version"], "0.3.0");
+        assert_eq!(parsed["result"]["serverInfo"]["version"], "0.3.1");
     }
 
     #[test]
@@ -634,7 +778,7 @@ mod tests {
         let resp = handle_json_rpc_message(list_req).expect("Response expected");
         let parsed: Value = serde_json::from_str(&resp).unwrap();
         let tools = parsed["result"]["tools"].as_array().expect("Tools array");
-        assert_eq!(tools.len(), 7);
+        assert_eq!(tools.len(), 10);
 
         let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
         assert!(names.contains(&"check_safety"));
@@ -644,6 +788,70 @@ mod tests {
         assert!(names.contains(&"synthesize_contract"));
         assert!(names.contains(&"extract_intent_slice"));
         assert!(names.contains(&"verify_contract"));
+        assert!(names.contains(&"resolve_symbol"));
+        assert!(names.contains(&"get_blast_radius"));
+        assert!(names.contains(&"find_references"));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_resolve_symbol() {
+        let call_req = r#"{
+            "jsonrpc": "2.0",
+            "id": 9,
+            "method": "tools/call",
+            "params": {
+                "name": "resolve_symbol",
+                "arguments": {
+                    "symbol": "AstGuard",
+                    "target_path": "src"
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(call_req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("AstGuard"));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_get_blast_radius() {
+        let call_req = r#"{
+            "jsonrpc": "2.0",
+            "id": 10,
+            "method": "tools/call",
+            "params": {
+                "name": "get_blast_radius",
+                "arguments": {
+                    "symbol": "AstGuard",
+                    "path": "src",
+                    "depth": 2
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(call_req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("risk_score"));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_find_references() {
+        let call_req = r#"{
+            "jsonrpc": "2.0",
+            "id": 11,
+            "method": "tools/call",
+            "params": {
+                "name": "find_references",
+                "arguments": {
+                    "symbol": "verify",
+                    "target_path": "src"
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(call_req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("file"));
     }
 
     #[test]

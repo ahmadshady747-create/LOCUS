@@ -1,15 +1,15 @@
 # locus-engine 🦀⚡
 
-> **Deterministic AST Safety Guard, Polyglot Semantic Symbol Graph, Frontend Component Skeletonizer, Surgical Byte-Span Patching, and Zero-Dependency Model Context Protocol (MCP) Server in Pure Rust.**
+> **Deterministic AST Safety Guard, Cross-Module Symbol Resolver, Blast-Radius Impact Analyzer, Context Slicer, and Zero-Dependency Model Context Protocol (MCP) Server in Pure Rust.**
 
-[![Release: v0.3.0](https://img.shields.io/badge/Release-v0.3.0-blue.svg)](https://github.com/ahmadshady747-create/LOCUS/releases/tag/v0.3.0)
+[![Release: v0.3.1](https://img.shields.io/badge/Release-v0.3.1-blue.svg)](https://github.com/ahmadshady747-create/LOCUS/releases/tag/v0.3.1)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE)
-[![Tests: 51/51 Passing](https://img.shields.io/badge/Tests-51%2F51%20Passing%20(100%25)-brightgreen.svg)](Cargo.toml)
+[![Tests: 59/59 Passing](https://img.shields.io/badge/Tests-59%2F59%20Passing%20(100%25)-brightgreen.svg)](Cargo.toml)
 [![Protocol: Model Context Protocol (MCP)](https://img.shields.io/badge/Protocol-MCP%20JSON--RPC%202.0-blueviolet.svg)](src/mcp.rs)
 [![Memory Safety: Zero Unsafe](https://img.shields.io/badge/Memory%20Safety-Zero%20Unsafe%20(100%25)-success.svg)](src/)
-[![Contract Synthesis: 10µs](https://img.shields.io/badge/Intent%20Synthesis-10.6%C2%B5s%20(Sub--0.02ms)-purple.svg)](src/contract.rs)
+[![Symbol Resolution: 2.2µs](https://img.shields.io/badge/Symbol%20Resolution-2.2%C2%B5s%20(Sub--0.005ms)-purple.svg)](src/graph.rs)
+[![Blast Radius: 6.0µs](https://img.shields.io/badge/Blast%20Radius-6.0%C2%B5s%20(100%20Modules)-orange.svg)](src/graph.rs)
 [![Frontend Token Compression: >73%](https://img.shields.io/badge/Context%20Compression->73%25%20Token%20Savings-success.svg)](src/diff.rs)
-[![Zero External Crypto](https://img.shields.io/badge/Crypto-FIPS%20180--4%20Pure%20SHA--256-orange.svg)](src/cache.rs)
 
 ---
 
@@ -17,12 +17,16 @@
 
 Modern AI code generation agents (Claude Code, Cursor, Copilot, Antigravity, Devin) and automated developer pipelines face two systemic engineering bottlenecks:
 1. **Probabilistic Syntax, Concurrency & Security Regressions:** AI agents frequently hallucinate unclosed delimiters, broken JSX/HTML tags, illegal conditional hook calls, server secret leaks in `"use client"` files, panic-inducing `.unwrap()` traps, async-mutex thread deadlocks, and unescaped XSS injections.
-2. **Context Window Inflation & API Hallucination:** Repeatedly feeding entire source code files and component JSX trees into LLM context windows wastes up to **80% of token budgets** on repetitive render templates, leading to hallucinated APIs and misaligned implementations.
+2. **Context Window Inflation & Blind Refactoring:** Repeatedly feeding entire source code files and component JSX trees into LLM context windows wastes up to **80% of token budgets**, while refactoring without blast-radius analysis risks silent breaking changes across downstream callers.
 
-**`locus-engine` (v0.3.0)** operates as a **Bidirectional Intent & Safety Engine** in pure safe Rust:
-- **Proactive Phase (`synthesize_contract`):** Proactively projects developer intent into strict type contract scaffolding and safety invariant checklists *before* any implementation code is generated.
-- **Intent Slicing (`extract_intent_slice`):** Extracts minimal, high-density AST context slices containing *only* target symbols and their direct dependencies up to N degrees of separation.
-- **Reactive & Verification Phase (`verify_contract`, `check_safety`):** Enforces deterministic, non-negotiable safety invariants and contract fidelity in **microsecond time (`10.6 µs – 68.0 µs`)**.
+**`locus-engine` (v0.3.1)** operates as a **Comprehensive Bidirectional Intent, Blast Radius & Safety Engine** in pure safe Rust:
+- **Blast-Radius & Impact Analysis (`get_blast_radius`):** Computes downstream caller chains, affected file sets, and breaking change risk scores in **`6.08 µs`**.
+- **Cross-Module Symbol Resolver (`resolve_symbol`):** Resolves origin files, byte spans, signatures, and doc-comments across module paths in **`2.23 µs`**.
+- **Inbound Reference Finder (`find_references`):** Maps every call site, import, and usage across the entire indexed workspace.
+- **Architectural Health Auditor (`detect_import_cycles`, `find_orphan_exports`):** Finds circular dependency loops and dead exports.
+- **Proactive Intent Synthesis (`synthesize_contract`):** Projects natural language intent into strict type scaffolding in **`16.50 µs`**.
+- **Intent Slicing (`extract_intent_slice`):** Extracts minimal, high-density AST context slices with **>73% token savings**.
+- **Reactive & Invariant Verification (`verify_contract`, `check_safety`):** Enforces 11 deterministic safety invariants in **microsecond time (`8.26 µs – 45.40 µs`)**.
 
 ---
 
@@ -32,16 +36,19 @@ Benchmarked under optimized release profile (`opt-level = 3`, `lto = thin`, `cod
 
 | Subsystem / Operation | Benchmark Cycles | Total Elapsed | Average Latency | Status |
 | :--- | :---: | :---: | :---: | :---: |
-| **📜 ContractSynthesizer (Intent Scaffolding)** | 1,000 synthesis cycles | `10.637 ms` | **`10.64 µs`** (0.010 ms / contract) | **100% PASS** |
-| **🎯 ContextSlicer (Intent-Driven Slicing)** | 1,000 slicing cycles | `32.844 ms` | **`32.84 µs`** (0.032 ms / slice) | **100% PASS** |
-| **🔄 Bidirectional Contract Verification** | 500 round-trips | `34.032 ms` | **`68.06 µs`** / verification | **100% PASS** |
-| **🛡️ AstGuard Invariant Verification (Core)** | 1,000 iterations | `20.527 ms` | **`20.53 µs`** (0.020 ms / check) | **100% PASS** |
-| **🎨 Frontend AST Guard (JSX, Hooks, Secrets, XSS)** | 1,000 iterations | `22.747 ms` | **`22.75 µs`** (0.022 ms / check) | **100% PASS** |
-| **🗜️ Frontend TSX Component Skeletonizer** | 500 cycles | `26.270 ms` | **`52.54 µs`** (73.4% Token Savings) | **100% PASS** |
-| **⚡ AstContextCache (FIPS 180-4 SHA-256)** | 1,000 inserts/lookups | `19.639 ms` | **`19.64 µs`** / digest + LRU | **100% PASS** |
-| **🔌 MCP Stdio JSON-RPC Dispatch** | 1,000 round-trips | `78.143 ms` | **`78.14 µs`** / dispatch | **100% PASS** |
-| **✂️ AstDiffEngine (Patch & Skeleton)** | 500 cycles | `24.523 ms` | **`49.05 µs`** / operation | **100% PASS** |
-| **🧠 SymbolGraph Polyglot Indexer** | 600 files (1,600 symbols) | `15.442 ms` | **`25.73 µs`** / file | **100% PASS** |
+| **🔍 Cross-Module Symbol Resolution** | 1,000 lookups | `2.226 ms` | **`2.23 µs`** (0.002 ms / query) | **100% PASS** |
+| **💥 Blast Radius Impact Analyzer (100 Modules)** | 500 calculations | `3.038 ms` | **`6.08 µs`** (0.006 ms / analysis) | **100% PASS** |
+| **🔄 Circular Import Dependency Detector (50 Nodes)** | 200 checks | `23.085 ms` | **`115.43 µs`** (0.115 ms / cycle check) | **100% PASS** |
+| **🛡️ AstGuard Invariant Verification (Core)** | 1,000 iterations | `8.257 ms` | **`8.26 µs`** (0.008 ms / check) | **100% PASS** |
+| **📜 ContractSynthesizer (Intent Scaffolding)** | 1,000 synthesis cycles | `16.502 ms` | **`16.50 µs`** (0.016 ms / contract) | **100% PASS** |
+| **🎨 Frontend AST Guard (JSX, Hooks, Secrets, XSS)** | 1,000 iterations | `16.205 ms` | **`16.21 µs`** (0.016 ms / check) | **100% PASS** |
+| **🔄 Bidirectional Contract Verification** | 500 round-trips | `22.700 ms` | **`45.40 µs`** / verification | **100% PASS** |
+| **🎯 ContextSlicer (Intent-Driven Slicing)** | 1,000 slicing cycles | `57.469 ms` | **`57.47 µs`** (0.057 ms / slice) | **100% PASS** |
+| **🗜️ Frontend TSX Component Skeletonizer** | 500 cycles | `40.275 ms` | **`80.55 µs`** (73.4% Token Savings) | **100% PASS** |
+| **⚡ AstContextCache (FIPS 180-4 SHA-256)** | 1,000 inserts/lookups | `18.023 ms` | **`18.02 µs`** / digest + LRU | **100% PASS** |
+| **🔌 MCP Stdio JSON-RPC Dispatch** | 1,000 round-trips | `84.524 ms` | **`84.52 µs`** / dispatch | **100% PASS** |
+| **✂️ AstDiffEngine (Patch & Skeleton)** | 500 cycles | `37.846 ms` | **`75.69 µs`** / operation | **100% PASS** |
+| **🧠 SymbolGraph Polyglot Indexer** | 600 files (1,600 symbols) | `10.192 ms` | **`16.98 µs`** / file | **100% PASS** |
 
 ### 🔍 Industry Comparison Matrix
 
