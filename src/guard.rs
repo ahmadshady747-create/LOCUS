@@ -1,7 +1,14 @@
-//! AstGuard — 6-pass deterministic safety invariant verifier.
+//! AstGuard — 20-pass deterministic safety invariant verifier.
 //!
 //! All regex patterns are compiled once at startup via `std::sync::LazyLock`
 //! and reused across calls. Each `verify()` call typically completes in <0.05ms.
+
+pub mod invariants_extended;
+pub mod rule_runner;
+pub mod index;
+
+pub use invariants_extended::InvariantsExtended;
+pub use rule_runner::{RuleMask, RuleRunner};
 
 use std::sync::LazyLock;
 use std::time::Instant;
@@ -19,10 +26,7 @@ static RE_DIV_BY_ZERO: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"[a-zA-Z_][a-zA-Z0-9_]*\s*/\s*[a-zA-Z_][a-zA-Z0-9_]*").unwrap()
 });
 
-/// Detects numeric literal divisors (safe: e.g. `x / 2`, `x / 10.0`).
-static RE_DIV_LITERAL: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"/\s*[0-9]+(?:\.[0-9]+)?").unwrap()
-});
+
 
 /// Detects array/slice indexing by variable (`arr[i]`, `slice[idx]`).
 static RE_ARRAY_INDEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -51,7 +55,7 @@ static RE_AWAIT: LazyLock<Regex> = LazyLock::new(|| {
 
 /// Detects catastrophically backtracking regex patterns like `(a+)+` or `(.+)*`.
 static RE_REDOS: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"["'`].*(\(.+[+*]\)[+*]|\([^)]*[+*][^)]*\)[+*]).*["'`]"#).unwrap()
+    Regex::new(r#"["'`/].*(\(.+[+*]\)[+*]|\([^)]*[+*][^)]*\)[+*]).*["'`/]"#).unwrap()
 });
 
 /// Detects unsafe deep property access in TS/JS: `a.b.c` without `?.`.
@@ -59,10 +63,7 @@ static RE_NULL_DEREF: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"[a-zA-Z_$][a-zA-Z0-9_$]*\.[a-zA-Z_$][a-zA-Z0-9_$]*\.[a-zA-Z_$][a-zA-Z0-9_$]*").unwrap()
 });
 
-/// Detects safe optional chaining.
-static RE_OPTIONAL_CHAIN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\?\.[a-zA-Z_$]").unwrap()
-});
+
 
 /// Detects conditional hook invocations inside if blocks.
 static RE_HOOK_IF: LazyLock<Regex> = LazyLock::new(|| {
@@ -88,6 +89,26 @@ static RE_CLIENT_SECRET: LazyLock<Regex> = LazyLock::new(|| {
 static RE_DANGEROUS_HTML: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"dangerouslySetInnerHTML\s*=\s*\{\{\s*__html\s*:\s*([^}]+)\}\}"#).unwrap()
 });
+
+/// Detects function boundaries for scope-level analysis.
+static RE_FUNC_BOUNDARY: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?:pub\s+)?(?:async\s+)?fn\s+\w+").unwrap()
+});
+
+/// Known standard HTML element names for JSX tag filtering.
+const KNOWN_HTML_TAGS: &[&str] = &[
+    "a","abbr","address","area","article","aside","audio","b","base","bdi","bdo",
+    "blockquote","body","br","button","canvas","caption","cite","code","col",
+    "colgroup","data","datalist","dd","del","details","dfn","dialog","div","dl",
+    "dt","em","embed","fieldset","figcaption","figure","footer","form","h1","h2",
+    "h3","h4","h5","h6","head","header","hgroup","hr","html","i","iframe","img",
+    "input","ins","kbd","label","legend","li","link","main","map","mark","menu",
+    "meta","meter","nav","noscript","object","ol","optgroup","option","output",
+    "p","param","picture","pre","progress","q","rp","rt","ruby","s","samp",
+    "script","search","section","select","slot","small","source","span","strong",
+    "style","sub","summary","sup","svg","table","tbody","td","template","textarea",
+    "tfoot","th","thead","time","title","tr","track","u","ul","var","video","wbr",
+];
 
 // ---------------------------------------------------------------------------
 // AstGuard
@@ -173,6 +194,12 @@ impl AstGuard {
             return VerificationReport::failed(ViolationKind::JsxTagMismatch, v, latency_ms);
         }
 
+        // Passes 11..19: Extended Enterprise & Concurrency Invariants
+        if let Some((kind, detail)) = InvariantsExtended::check_all(source) {
+            let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
+            return VerificationReport::failed(kind, detail, latency_ms);
+        }
+
         VerificationReport::passed(start.elapsed().as_secs_f64() * 1000.0)
     }
 
@@ -183,6 +210,9 @@ impl AstGuard {
         let len = bytes.len();
         let mut stack: Vec<u8> = Vec::new();
         let mut i = 0;
+        // Detect if source is Rust (for char literal vs JS/TS single-quote string disambiguation)
+        let is_rust_source = source.contains("fn ") || source.contains("pub struct ")
+            || source.contains("impl ") || source.contains("use std::");
 
         while i < len {
             let b = bytes[i];
@@ -265,13 +295,22 @@ impl AstGuard {
                         i += 1;
                         break;
                     }
+                    let tb = bytes[i];
+                    match tb {
+                        b'{' | b'[' | b'(' => stack.push(tb),
+                        b'}' if stack.pop() != Some(b'{') => return false,
+                        b']' if stack.pop() != Some(b'[') => return false,
+                        b')' if stack.pop() != Some(b'(') => return false,
+                        _ => {}
+                    }
                     i += 1;
                 }
                 continue;
             }
 
-            // 6. Char literal '...'
+            // 6. Char literal '...' or JS/TS single-quoted string
             if b == b'\'' {
+                // Try Rust char literal first
                 if i + 2 < len && bytes[i + 2] == b'\'' && bytes[i + 1] != b'\\' {
                     i += 3;
                     continue;
@@ -279,14 +318,24 @@ impl AstGuard {
                     i += 4;
                     continue;
                 }
+                // JS/TS single-quoted string: skip to matching closing quote
+                if !is_rust_source {
+                    i += 1;
+                    while i < len {
+                        if bytes[i] == b'\\' { i += 2; continue; }
+                        if bytes[i] == b'\'' { i += 1; break; }
+                        i += 1;
+                    }
+                    continue;
+                }
             }
 
             // 7. Delimiter stack tracking
             match b {
                 b'{' | b'[' | b'(' => stack.push(b),
-                b'}' => if stack.pop() != Some(b'{') { return false; },
-                b']' => if stack.pop() != Some(b'[') { return false; },
-                b')' => if stack.pop() != Some(b'(') { return false; },
+                b'}' if stack.pop() != Some(b'{') => return false,
+                b']' if stack.pop() != Some(b'[') => return false,
+                b')' if stack.pop() != Some(b'(') => return false,
                 _ => {}
             }
 
@@ -400,6 +449,16 @@ impl AstGuard {
                         tag_end += 1;
                     }
                     let tag_name = source[tag_start..tag_end].to_string();
+
+                    // Whitelist filter: only process React components (uppercase) or known HTML tags.
+                    // Skip lowercase non-HTML identifiers (likely math comparisons like `x < y`).
+                    let first_char = tag_name.chars().next().unwrap_or('a');
+                    let is_component = first_char.is_ascii_uppercase();
+                    let is_known_html = KNOWN_HTML_TAGS.contains(&tag_name.to_lowercase().as_str());
+                    if !is_component && !is_known_html {
+                        i = tag_end;
+                        continue;
+                    }
 
                     // Scan tag attributes up to '>' or '/>'
                     let mut scan = tag_end;
@@ -542,22 +601,79 @@ impl AstGuard {
     // --- Internal Passes ---
 
     fn check_div_by_zero(source: &str) -> Option<String> {
-        if RE_DIV_BY_ZERO.is_match(source) && !RE_DIV_LITERAL.is_match(source) {
-            if !source.contains("!= 0") && !source.contains("!= 0.0") && !source.contains("assert!") {
-                if let Some(m) = RE_DIV_BY_ZERO.find(source) {
-                    return Some(format!(
-                        "Unguarded division at byte {}: `{}` — denominator may be zero.",
-                        m.start(), m.as_str()
-                    ));
+        for m in RE_DIV_BY_ZERO.find_iter(source) {
+            let expr = m.as_str();
+            // Extract the divisor (part after /)
+            if let Some(divisor_part) = expr.split('/').nth(1) {
+                let divisor = divisor_part.trim();
+                // Skip if divisor starts with a digit (numeric literal — safe)
+                if divisor.chars().next().is_none_or(|c| c.is_ascii_digit()) {
+                    continue;
                 }
+                // Skip comments
+                let before = &source[..m.start()];
+                let last_nl = before.rfind('\n').unwrap_or(0);
+                let line_prefix = before[last_nl..].trim_start();
+                if line_prefix.starts_with("//") || line_prefix.starts_with('*') || line_prefix.starts_with('"') {
+                    continue;
+                }
+                // Skip test code
+                if before.contains("#[cfg(test)]") || before.contains("#[test]") {
+                    continue;
+                }
+                // Skip if inside raw string or string literals
+                if before.matches("r#\"").count() > before.matches("\"#").count() {
+                    continue;
+                }
+                let dquotes = before.matches('"').count() - before.matches(r#"\""#).count();
+                let squotes = before.matches('\'').count() - before.matches(r#"\'"#).count();
+                let bquotes = before.matches('`').count() - before.matches(r#"\`"#).count();
+                if !dquotes.is_multiple_of(2) || !squotes.is_multiple_of(2) || !bquotes.is_multiple_of(2) {
+                    continue;
+                }
+                // Check local context (3 lines before the division) for guards on this divisor
+                let context_start = before.rmatch_indices('\n').nth(2).map(|(i, _)| i).unwrap_or(0);
+                let local_ctx = &source[context_start..m.end()];
+                if local_ctx.contains(&format!("{} != 0", divisor))
+                    || local_ctx.contains(&format!("{} != 0.0", divisor))
+                    || local_ctx.contains(&format!("{} > 0", divisor))
+                    || local_ctx.contains(&format!("{} == 0", divisor))
+                    || local_ctx.contains("assert!")
+                {
+                    continue;
+                }
+                return Some(format!(
+                    "Unguarded division at byte {}: `{}` — denominator may be zero.",
+                    m.start(), expr
+                ));
             }
         }
         None
     }
 
     fn check_array_bounds(source: &str) -> Option<String> {
-        if RE_ARRAY_INDEX.is_match(source) && !RE_BOUND_CHECK.is_match(source) {
-            if let Some(m) = RE_ARRAY_INDEX.find(source) {
+        if !RE_BOUND_CHECK.is_match(source) {
+            for m in RE_ARRAY_INDEX.find_iter(source) {
+                let before = &source[..m.start()];
+                let last_nl = before.rfind('\n').unwrap_or(0);
+                let line_prefix = before[last_nl..].trim_start();
+                if line_prefix.starts_with("//") || line_prefix.starts_with('*') {
+                    continue;
+                }
+                // Skip test code
+                if before.contains("#[cfg(test)]") || before.contains("#[test]") {
+                    continue;
+                }
+                // Skip if inside raw string or string literals
+                if before.matches("r#\"").count() > before.matches("\"#").count() {
+                    continue;
+                }
+                let dquotes = before.matches('"').count() - before.matches(r#"\""#).count();
+                let squotes = before.matches('\'').count() - before.matches(r#"\'"#).count();
+                let bquotes = before.matches('`').count() - before.matches(r#"\`"#).count();
+                if !dquotes.is_multiple_of(2) || !squotes.is_multiple_of(2) || !bquotes.is_multiple_of(2) {
+                    continue;
+                }
                 return Some(format!(
                     "Array index access without bounds guard at byte {}: `{}`",
                     m.start(), m.as_str()
@@ -570,24 +686,38 @@ impl AstGuard {
     fn check_unsafe_unwrap(source: &str) -> Option<String> {
         for cap in RE_UNWRAP.find_iter(source) {
             let before = &source[..cap.start()];
+            // Skip raw strings
             if before.matches("r#\"").count() > before.matches("\"#").count() {
                 continue;
             }
+            // Skip test code
             if before.contains("#[cfg(test)]") || before.contains("#[test]") {
                 continue;
             }
             let last_newline = before.rfind('\n').unwrap_or(0);
             let line = &before[last_newline..];
             let trimmed = line.trim_start();
-            if trimmed.starts_with("//") || trimmed.starts_with('*') || trimmed.starts_with('"') || line.contains("LazyLock") || line.contains("Regex::new") {
+            if trimmed.starts_with("//") || trimmed.starts_with('*') || trimmed.starts_with('"')
+                || line.contains("LazyLock") || line.contains("Regex::new")
+            {
                 continue;
             }
-            if !line.contains("is_some()") && !line.contains("is_ok()") && !line.contains("if let") {
-                return Some(format!(
-                    "Unsafe `.unwrap()` at byte {} without prior guard.",
-                    cap.start()
-                ));
+            // Expanded 5-line context window for guard detection
+            let context_start = before.rmatch_indices('\n').nth(4).map(|(i, _)| i).unwrap_or(0);
+            let context_window = &before[context_start..];
+            if context_window.contains("is_some()")
+                || context_window.contains("is_ok()")
+                || context_window.contains("if let")
+                || context_window.contains("is_none()")
+                || context_window.contains("is_err()")
+                || context_window.contains("match ")
+            {
+                continue;
             }
+            return Some(format!(
+                "Unsafe `.unwrap()` at byte {} without prior guard.",
+                cap.start()
+            ));
         }
         None
     }
@@ -599,18 +729,66 @@ impl AstGuard {
             source
         };
 
-        let has_mutex = code.lines().any(|line| {
-            let trimmed = line.trim();
-            !trimmed.starts_with("//") && !trimmed.starts_with('*') && !trimmed.starts_with('"') && !trimmed.starts_with("static") && !trimmed.starts_with("Regex::new") && !trimmed.contains("checklist.push") && RE_SYNC_MUTEX.is_match(trimmed)
-        });
-        let has_await = code.lines().any(|line| {
-            let trimmed = line.trim();
-            !trimmed.starts_with("//") && !trimmed.starts_with('*') && !trimmed.starts_with('"') && !trimmed.starts_with("static") && !trimmed.starts_with("Regex::new") && !trimmed.contains("checklist.push") && RE_AWAIT.is_match(trimmed)
-        });
-        if has_mutex && has_await {
-            return Some(
-                "Blocking sync Mutex used in async context with await point — use tokio::sync::Mutex instead.".to_string()
-            );
+        let file_has_sync_mutex = RE_SYNC_MUTEX.is_match(code);
+        if !file_has_sync_mutex {
+            return None;
+        }
+
+        // Split into function scopes and check each independently
+        for func_match in RE_FUNC_BOUNDARY.find_iter(code) {
+            let fn_start = func_match.start();
+            if let Some(body) = Self::extract_function_body(code, fn_start) {
+                let has_await = body.lines().any(|line| {
+                    let t = line.trim();
+                    !t.starts_with("//") && !t.starts_with('*') && !t.starts_with('"')
+                        && !t.starts_with("static") && !t.starts_with("Regex::new")
+                        && !t.contains("checklist.push") && RE_AWAIT.is_match(t)
+                });
+                let has_mutex = body.lines().any(|line| {
+                    let t = line.trim();
+                    !t.starts_with("//") && !t.starts_with('*') && !t.starts_with('"')
+                        && !t.starts_with("static") && !t.starts_with("Regex::new")
+                        && !t.contains("checklist.push")
+                        && (RE_SYNC_MUTEX.is_match(t) || t.contains("Mutex") || t.contains(".lock()"))
+                });
+                if has_mutex && has_await {
+                    return Some(
+                        "Blocking sync Mutex used in async context with await point — use tokio::sync::Mutex instead.".to_string()
+                    );
+                }
+            }
+        }
+        None
+    }
+
+    /// Extract the body of a function starting at `fn_start` by brace-depth matching.
+    fn extract_function_body(source: &str, fn_start: usize) -> Option<&str> {
+        let rest = &source[fn_start..];
+        let brace_start = rest.find('{')?;
+        let mut depth = 0i32;
+        let bytes = rest.as_bytes();
+        let mut i = brace_start;
+        while i < bytes.len() {
+            match bytes[i] {
+                b'{' => depth += 1,
+                b'}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some(&rest[..i + 1]);
+                    }
+                }
+                b'"' => {
+                    // Skip string literals
+                    i += 1;
+                    while i < bytes.len() {
+                        if bytes[i] == b'\\' { i += 2; continue; }
+                        if bytes[i] == b'"' { break; }
+                        i += 1;
+                    }
+                }
+                _ => {}
+            }
+            i += 1;
         }
         None
     }
@@ -623,11 +801,10 @@ impl AstGuard {
         };
 
         for m in RE_REDOS.find_iter(code) {
-            let before = &code[..m.start()];
-            let last_newline = before.rfind('\n').unwrap_or(0);
-            let line = &before[last_newline..];
-            let trimmed = line.trim_start();
-            if trimmed.starts_with("//") || trimmed.starts_with('*') {
+            let line_start = code[..m.start()].rfind('\n').map(|idx| idx + 1).unwrap_or(0);
+            let full_line = &code[line_start..];
+            let trimmed = full_line.trim_start();
+            if trimmed.starts_with("//") || trimmed.starts_with('*') || trimmed.starts_with("/*") || trimmed.starts_with("static") || trimmed.starts_with("Regex::new") {
                 continue;
             }
             return Some(format!(
@@ -639,31 +816,39 @@ impl AstGuard {
     }
 
     fn check_null_deref(source: &str) -> Option<String> {
-        let is_rust = source.contains("fn ") || source.contains("impl ") || source.contains("pub struct ") || source.contains("pub enum ");
+        let is_rust = source.contains("fn ") || source.contains("impl ")
+            || source.contains("pub struct ") || source.contains("pub enum ");
         if is_rust {
             return None;
         }
+        let is_ts = source.contains(": string") || source.contains("interface ")
+            || source.contains("export ");
+        if !is_ts {
+            return None;
+        }
 
-        if RE_NULL_DEREF.is_match(source) && !RE_OPTIONAL_CHAIN.is_match(source) {
-            if source.contains(": string") || source.contains("interface ") || source.contains("export ") {
-                for m in RE_NULL_DEREF.find_iter(source) {
-                    let s = m.as_str();
-                    if s.starts_with("process.env") || s.starts_with("import.meta") {
-                        continue;
-                    }
-                    let before = &source[..m.start()];
-                    let last_newline = before.rfind('\n').unwrap_or(0);
-                    let line = &before[last_newline..];
-                    let trimmed = line.trim_start();
-                    if trimmed.starts_with("//") || trimmed.starts_with('*') {
-                        continue;
-                    }
-                    return Some(format!(
-                        "Deep property access without optional chaining at byte {}: `{}` — use `?.`",
-                        m.start(), s
-                    ));
-                }
+        for m in RE_NULL_DEREF.find_iter(source) {
+            let s = m.as_str();
+            if s.starts_with("process.env") || s.starts_with("import.meta") {
+                continue;
             }
+            // Skip comments
+            let before = &source[..m.start()];
+            let last_newline = before.rfind('\n').unwrap_or(0);
+            let line_prefix = before[last_newline..].trim_start();
+            if line_prefix.starts_with("//") || line_prefix.starts_with('*') {
+                continue;
+            }
+            // Per-chain optional chaining check: examine the full line containing this match
+            let line_end = source[m.end()..].find('\n').map_or(source.len(), |p| m.end() + p);
+            let full_line = &source[last_newline..line_end];
+            if full_line.contains("?.") {
+                continue;
+            }
+            return Some(format!(
+                "Deep property access without optional chaining at byte {}: `{}` — use `?.`",
+                m.start(), s
+            ));
         }
         None
     }
@@ -859,5 +1044,92 @@ const RE: &str = "(a+)+$";
         "#;
         let rep_safe = AstGuard::verify(sanitized);
         assert!(rep_safe.passed, "Sanitized dangerouslySetInnerHTML should pass: {:?}", rep_safe.violation);
+    }
+
+    #[test]
+    fn test_div_by_zero_per_match_distinction() {
+        let code = r#"
+        pub fn compute(a: f64, b: f64, c: f64) -> f64 {
+            let half = a / 2.0;
+            let ratio = b / c;
+            half + ratio
+        }
+        "#;
+        let rep = AstGuard::verify(code);
+        assert!(!rep.passed);
+        assert_eq!(rep.violation, Some(ViolationKind::DivisionByZero));
+    }
+
+    #[test]
+    fn test_jsx_ignores_math_comparisons() {
+        let code = r#"
+        export function checkBounds(x: number, y: number, z: number, w: number): boolean {
+            return x < y && z > w;
+        }
+        "#;
+        let rep = AstGuard::verify(code);
+        assert!(rep.passed, "Math comparisons should not trigger JSX tag mismatch: {:?}", rep.violation);
+    }
+
+    #[test]
+    fn test_delimiter_single_quote_js_strings() {
+        let code = r#"
+        const template = 'function { with [brackets] and (parens) }';
+        export function test() {
+            return template;
+        }
+        "#;
+        assert!(AstGuard::check_delimiter_balance(code));
+        let rep = AstGuard::verify(code);
+        assert!(rep.passed, "Single-quoted JS string should not break delimiter balance: {:?}", rep.violation);
+    }
+
+    #[test]
+    fn test_null_deref_per_chain() {
+        let code = r#"
+        export function process(res: any) {
+            const safe = res?.data?.user?.name;
+            const unsafeVal = res.article.author.profile.avatar;
+            return { safe, unsafeVal };
+        }
+        "#;
+        let rep = AstGuard::verify(code);
+        assert!(!rep.passed);
+        assert_eq!(rep.violation, Some(ViolationKind::NullDereference));
+    }
+
+    #[test]
+    fn test_async_mutex_separate_functions() {
+        let code = r#"
+        use std::sync::Mutex;
+
+        pub fn sync_worker(m: &Mutex<u32>) {
+            if let Ok(mut g) = m.lock() {
+                *g += 1;
+            }
+        }
+
+        pub async fn async_worker() {
+            fetch_data().await;
+        }
+        "#;
+        let rep = AstGuard::verify(code);
+        assert!(rep.passed, "Separate sync mutex and async fn should not trigger deadlock warning: {:?}", rep.violation);
+    }
+
+    #[test]
+    fn test_unwrap_within_5_line_guard_window() {
+        let code = r#"
+        pub fn get_value(opt: Option<i32>) -> i32 {
+            if opt.is_some() {
+                let _log = "checking value";
+                opt.unwrap()
+            } else {
+                0
+            }
+        }
+        "#;
+        let rep = AstGuard::verify(code);
+        assert!(rep.passed, "Guarded unwrap within 5 lines should pass: {:?}", rep.violation);
     }
 }

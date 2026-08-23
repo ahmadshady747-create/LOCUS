@@ -2,9 +2,11 @@
 target/
 src-tauri/target/
 **/*.rs.bk
+*.zip
 
 # Node
 node_modules/
+dist/
 src/node_modules/
 src/dist/
 src/dist-ssr/

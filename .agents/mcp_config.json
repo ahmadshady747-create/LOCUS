@@ -1,10 +1,20 @@
 {
-    "mcpServers":  {
-                       "locus":  {
-                                     "args":  [
-                                                  "mcp"
-                                              ],
-                                     "command":  "C:\\Users\\awsat\\AppData\\Local\\Programs\\locus\\locus.exe"
-                                 }
-                   }
+    "mcpServers": {
+        "locus": {
+            "args": [
+                "mcp"
+            ],
+            "command": "C:\\Users\\awsat\\AppData\\Local\\Programs\\locus\\locus.exe"
+        },
+        "gama": {
+            "command": "node",
+            "args": [
+                "f:/GAMA/node_modules/tsx/dist/cli.mjs",
+                "f:/GAMA/src/mcp/server.ts"
+            ],
+            "env": {
+                "NODE_ENV": "production"
+            }
+        }
+    }
 }

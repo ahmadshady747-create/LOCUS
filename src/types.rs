@@ -167,6 +167,24 @@ pub enum ViolationKind {
     ClientSecretLeak,
     /// Direct raw HTML injection without sanitization.
     UnsafeInnerHtml,
+    /// Unparameterized SQL queries or raw template string concatenation.
+    SqlInjection,
+    /// Unhandled async floating promises lacking await, catch, or return.
+    FloatingPromise,
+    /// Non-functional state updates inside asynchronous loops or delayed callbacks.
+    ReactStateRace,
+    /// Event listeners or subscriptions added without cleanup in unmount handlers.
+    ListenerLeak,
+    /// Weak pseudo-random number generator (e.g. Math.random) used in security contexts.
+    InsecureRandomness,
+    /// Unsanitized user inputs concatenated into filesystem paths.
+    PathTraversal,
+    /// Unbounded regex execution risking high-complexity denial of service.
+    UnboundedRegex,
+    /// Dynamic code execution via eval(), new Function(), or unvalidated dynamic imports.
+    DynamicCodeEval,
+    /// Direct access to polymorphic union properties without discriminant narrowing.
+    UntypedUnionAccess,
 }
 
 impl std::fmt::Display for ViolationKind {
@@ -183,6 +201,15 @@ impl std::fmt::Display for ViolationKind {
             ViolationKind::ConditionalHookCall     => "CONDITIONAL_HOOK_CALL",
             ViolationKind::ClientSecretLeak        => "CLIENT_SECRET_LEAK",
             ViolationKind::UnsafeInnerHtml         => "UNSAFE_INNER_HTML",
+            ViolationKind::SqlInjection            => "SQL_INJECTION",
+            ViolationKind::FloatingPromise         => "FLOATING_PROMISE",
+            ViolationKind::ReactStateRace          => "REACT_STATE_RACE",
+            ViolationKind::ListenerLeak            => "LISTENER_LEAK",
+            ViolationKind::InsecureRandomness      => "INSECURE_RANDOMNESS",
+            ViolationKind::PathTraversal           => "PATH_TRAVERSAL",
+            ViolationKind::UnboundedRegex          => "UNBOUNDED_REGEX",
+            ViolationKind::DynamicCodeEval         => "DYNAMIC_CODE_EVAL",
+            ViolationKind::UntypedUnionAccess      => "UNTYPED_UNION_ACCESS",
         };
         write!(f, "{}", s)
     }
@@ -197,23 +224,254 @@ pub struct VerificationReport {
     pub violation: Option<ViolationKind>,
     /// Human-readable explanation of the violation.
     pub detail: Option<String>,
+    /// All violations detected in this pass.
+    pub violations: Vec<String>,
     /// Wall-clock time taken by the full verification pass.
     pub latency_ms: f64,
 }
 
 impl VerificationReport {
     pub fn passed(latency_ms: f64) -> Self {
-        Self { passed: true, violation: None, detail: None, latency_ms }
-    }
-
-    pub fn failed(violation: ViolationKind, detail: impl Into<String>, latency_ms: f64) -> Self {
         Self {
-            passed: false,
-            violation: Some(violation),
-            detail: Some(detail.into()),
+            passed: true,
+            violation: None,
+            detail: None,
+            violations: Vec::new(),
             latency_ms,
         }
     }
+
+    pub fn failed(violation: ViolationKind, detail: impl Into<String>, latency_ms: f64) -> Self {
+        let d = detail.into();
+        Self {
+            passed: false,
+            violation: Some(violation.clone()),
+            detail: Some(d.clone()),
+            violations: vec![format!("{}: {}", violation, d)],
+            latency_ms,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Transaction Types (Multi-File ACID Engine)
+// ---------------------------------------------------------------------------
+
+/// Unique identifier for an in-memory workspace transaction.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TransactionId(pub String);
+
+impl TransactionId {
+    pub fn new() -> Self {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        Self(format!("tx_{:x}", nanos))
+    }
+}
+
+impl Default for TransactionId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl std::fmt::Display for TransactionId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// Lifecycle status of an ACID workspace transaction.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TransactionStatus {
+    Open,
+    Staged,
+    Committed,
+    RolledBack,
+    Failed(String),
+}
+
+/// A single file modification staged in the in-memory shadow buffer.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TxStagedFile {
+    pub path: String,
+    pub original_content: Option<String>,
+    pub staged_content: String,
+    pub language: Language,
+}
+
+/// Consolidated audit report of a committed or rolled-back transaction.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransactionReport {
+    pub tx_id: TransactionId,
+    pub status: TransactionStatus,
+    pub total_staged_files: usize,
+    pub passed_verification: bool,
+    pub violations: Vec<String>,
+    pub committed_files: Vec<String>,
+    pub latency_ms: f64,
+}
+
+// ---------------------------------------------------------------------------
+// Auto-Remediation Types
+// ---------------------------------------------------------------------------
+
+/// The structural class of automated code remediation applied.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RemediationKind {
+    JsxCloseTag,
+    OptionalChaining,
+    HookHoisting,
+    Custom(String),
+}
+
+/// A deterministic, byte-accurate code edit applied by the remediation engine.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemediationEdit {
+    pub kind: RemediationKind,
+    pub description: String,
+    pub byte_start: usize,
+    pub byte_end: usize,
+    pub replacement: String,
+}
+
+/// Comprehensive outcome of an automated AST remediation pass.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemediationResult {
+    pub success: bool,
+    pub original_code: String,
+    pub remediated_code: String,
+    pub edits_applied: Vec<RemediationEdit>,
+    pub passed_verification: bool,
+    pub latency_ms: f64,
+}
+
+// ---------------------------------------------------------------------------
+// AST Query & Pattern Matching Types
+// ---------------------------------------------------------------------------
+
+/// Syntactic category of an incremental AST query node.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum AstQueryKind {
+    CallExpression,
+    FunctionDeclaration,
+    Identifier,
+    MemberAccess,
+    BinaryExpression,
+    TemplateLiteral,
+    JsxElement,
+    ImportDeclaration,
+}
+
+/// A matched AST node captured during an S-expression query execution.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AstQueryMatch {
+    pub pattern: String,
+    pub capture_name: String,
+    pub node_kind: AstQueryKind,
+    pub text: String,
+    pub byte_start: usize,
+    pub byte_end: usize,
+}
+
+// ---------------------------------------------------------------------------
+// Multi-Agent Symbol Lease Types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SymbolLease {
+    pub lease_id: String,
+    pub fqn: String,
+    pub holder_agent_id: String,
+    pub acquired_at_ms: u64,
+    pub ttl_ms: u64,
+    pub expires_at_ms: u64,
+}
+
+impl SymbolLease {
+    pub fn is_expired(&self, current_time_ms: u64) -> bool {
+        current_time_ms >= self.expires_at_ms
+    }
+
+    pub fn remaining_ttl_ms(&self, current_time_ms: u64) -> u64 {
+        self.expires_at_ms.saturating_sub(current_time_ms)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LeaseStatus {
+    Acquired(SymbolLease),
+    Conflict {
+        fqn: String,
+        current_holder: String,
+        remaining_ttl_ms: u64,
+    },
+    Released,
+    NotFound,
+    Renewed(SymbolLease),
+}
+
+// ---------------------------------------------------------------------------
+// Cross-File Taint & Data-Flow Types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TaintKind {
+    UnvalidatedInput,
+    NullableReturn,
+    UncheckedEnvVar,
+    Custom(String),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaintSource {
+    pub file: String,
+    pub symbol: String,
+    pub variable: String,
+    pub kind: TaintKind,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaintSink {
+    pub file: String,
+    pub symbol: String,
+    pub line: usize,
+    pub operation: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaintFlowReport {
+    pub taint_id: String,
+    pub source: TaintSource,
+    pub flow_path: Vec<String>,
+    pub sinks: Vec<TaintSink>,
+    pub is_sanitized: bool,
+    pub violation_risk: RiskScore,
+    pub latency_ms: f64,
+}
+
+// ---------------------------------------------------------------------------
+// In-Memory Quantized HNSW Search Types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchHit {
+    pub symbol_name: String,
+    pub file_path: String,
+    pub signature: String,
+    pub score: f32,
+    pub snippet: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HybridSearchResult {
+    pub query: String,
+    pub total_hits: usize,
+    pub hits: Vec<SearchHit>,
+    pub latency_ms: f64,
 }
 
 // ---------------------------------------------------------------------------

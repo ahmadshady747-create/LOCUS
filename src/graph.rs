@@ -207,8 +207,8 @@ impl SymbolGraph {
             let parent = Path::new(current_file).parent().unwrap_or(Path::new(""));
             let resolved = parent.join(import_spec);
             let s = resolved.to_string_lossy().replace('\\', "/");
-            if s.starts_with("./") {
-                s[2..].to_string()
+            if let Some(stripped) = s.strip_prefix("./") {
+                stripped.to_string()
             } else {
                 s
             }
@@ -347,7 +347,7 @@ impl SymbolGraph {
             if (ch == '"' || ch == '\'' || ch == '`') && prev != '\\' {
                 if ch == '\'' && !in_str {
                     let rest = &slice[i + ch.len_utf8()..];
-                    let is_char_lit = (rest.chars().nth(1) == Some('\'') && rest.chars().next() != Some('\\'))
+                    let is_char_lit = (rest.chars().nth(1) == Some('\'') && !rest.starts_with('\\'))
                         || (rest.starts_with('\\') && rest.chars().nth(2) == Some('\''));
                     if !is_char_lit && (prev == '&' || prev == '<' || prev == ',' || prev == ' ' || prev == '(') {
                         // Rust lifetime like &'a or <'a> — ignore
@@ -374,10 +374,8 @@ impl SymbolGraph {
                 paren_depth += 1;
             } else if ch == ')' {
                 if paren_depth > 0 { paren_depth -= 1; }
-            } else if paren_depth == 0 {
-                if ch == '{' || ch == ';' {
-                    return i;
-                }
+            } else if paren_depth == 0 && (ch == '{' || ch == ';') {
+                return i;
             }
             prev = ch;
         }
@@ -401,7 +399,7 @@ impl SymbolGraph {
             if (ch == '"' || ch == '\'' || ch == '`') && prev != '\\' {
                 if ch == '\'' && !in_str {
                     let rest = &slice[i + ch.len_utf8()..];
-                    let is_char_lit = (rest.chars().nth(1) == Some('\'') && rest.chars().next() != Some('\\'))
+                    let is_char_lit = (rest.chars().nth(1) == Some('\'') && !rest.starts_with('\\'))
                         || (rest.starts_with('\\') && rest.chars().nth(2) == Some('\''));
                     if !is_char_lit && (prev == '&' || prev == '<' || prev == ',' || prev == ' ' || prev == '(') {
                         // Rust lifetime like &'a or <'a> — ignore

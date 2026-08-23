@@ -1,5 +1,7 @@
 //! Model Context Protocol (MCP) Server for locus-engine over stdio (JSON-RPC 2.0).
 
+pub mod tools_v15_a;
+
 use std::fs;
 use std::io::{BufRead, Write};
 use std::path::Path;
@@ -13,6 +15,9 @@ use crate::graph::SymbolGraph;
 use crate::guard::AstGuard;
 use crate::slice::ContextSlicer;
 use crate::types::Language;
+
+static LEASE_REGISTRY: std::sync::LazyLock<crate::lease::LeaseRegistry> =
+    std::sync::LazyLock::new(crate::lease::LeaseRegistry::new);
 
 #[derive(Debug, Deserialize)]
 struct JsonRpcRequest {
@@ -372,6 +377,184 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                                 }
                             },
                             "required": ["file_path", "symbol", "new_code"]
+                        }
+                    },
+                    {
+                        "name": "begin_tx",
+                        "description": "Opens a multi-file ACID workspace transaction in-memory with automatic rollback journal.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {}
+                        }
+                    },
+                    {
+                        "name": "stage_tx",
+                        "description": "Stages a file modification into the active in-memory ACID transaction buffer.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "tx_id": {
+                                    "type": "string",
+                                    "description": "Active transaction ID"
+                                },
+                                "file_path": {
+                                    "type": "string",
+                                    "description": "Target file path to stage"
+                                },
+                                "content": {
+                                    "type": "string",
+                                    "description": "Staged file content"
+                                },
+                                "language": {
+                                    "type": "string",
+                                    "description": "Optional language"
+                                }
+                            },
+                            "required": ["tx_id", "file_path", "content"]
+                        }
+                    },
+                    {
+                        "name": "commit_tx",
+                        "description": "Validates all staged files across AST invariants and atomically commits to disk if and only if 100% pass.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "tx_id": {
+                                    "type": "string",
+                                    "description": "Active transaction ID to commit"
+                                }
+                            },
+                            "required": ["tx_id"]
+                        }
+                    },
+                    {
+                        "name": "rollback_tx",
+                        "description": "Rolls back and aborts an active workspace transaction, clearing staged buffers without touching disk.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "tx_id": {
+                                    "type": "string",
+                                    "description": "Transaction ID to rollback"
+                                }
+                            },
+                            "required": ["tx_id"]
+                        }
+                    },
+                    {
+                        "name": "auto_remediate",
+                        "description": "Deterministic AST self-healing rewriter that automatically closes broken JSX/HTML tags, fixes deep property null accesses to optional chaining (?.), and hoists conditional React hooks.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "string",
+                                    "description": "Raw source code snippet to deterministically remediate"
+                                }
+                            },
+                            "required": ["code"]
+                        }
+                    },
+                    {
+                        "name": "acquire_symbol_lease",
+                        "description": "Acquires an exclusive short-lived symbol lease with TTL on an FQN across multi-agent swarms to prevent concurrent write collisions.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "fqn": {
+                                    "type": "string",
+                                    "description": "Fully Qualified Symbol Name (e.g. src/auth.rs::login)"
+                                },
+                                "agent_id": {
+                                    "type": "string",
+                                    "description": "Unique agent identifier"
+                                },
+                                "ttl_ms": {
+                                    "type": "integer",
+                                    "description": "Time-To-Live in milliseconds (default: 60000)"
+                                }
+                            },
+                            "required": ["fqn", "agent_id"]
+                        }
+                    },
+                    {
+                        "name": "release_symbol_lease",
+                        "description": "Releases an active symbol lease held by an agent.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "lease_id": {
+                                    "type": "string",
+                                    "description": "Lease ID returned during acquisition"
+                                },
+                                "agent_id": {
+                                    "type": "string",
+                                    "description": "Agent identifier"
+                                }
+                            },
+                            "required": ["lease_id", "agent_id"]
+                        }
+                    },
+                    {
+                        "name": "renew_symbol_lease",
+                        "description": "Renews an active symbol lease heartbeat extension.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "lease_id": {
+                                    "type": "string",
+                                    "description": "Active lease ID"
+                                },
+                                "agent_id": {
+                                    "type": "string",
+                                    "description": "Agent identifier"
+                                },
+                                "extension_ms": {
+                                    "type": "integer",
+                                    "description": "Extension duration in milliseconds (default: 60000)"
+                                }
+                            },
+                            "required": ["lease_id", "agent_id"]
+                        }
+                    },
+                    {
+                        "name": "trace_taint_flow",
+                        "description": "Traces cross-file taint and unvalidated external data flows heading toward sensitive sinks (DB queries, filesystem calls, unhandled Option/null returns).",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "file_path": {
+                                    "type": "string",
+                                    "description": "Target file to trace"
+                                },
+                                "symbol": {
+                                    "type": "string",
+                                    "description": "Optional symbol to scope taint tracking"
+                                }
+                            },
+                            "required": ["file_path"]
+                        }
+                    },
+                    {
+                        "name": "hybrid_search",
+                        "description": "Executes sub-millisecond in-memory hybrid AST lexical + quantized HNSW vector search across indexed symbols.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "query": {
+                                    "type": "string",
+                                    "description": "Semantic query or symbol description"
+                                },
+                                "path": {
+                                    "type": "string",
+                                    "description": "Workspace root directory to search (default: .)"
+                                },
+                                "top_k": {
+                                    "type": "integer",
+                                    "description": "Maximum number of search results (default: 5)"
+                                }
+                            },
+                            "required": ["query"]
                         }
                     }
                 ]
@@ -983,6 +1166,149 @@ fn execute_tool(name: &str, args: &Value) -> Value {
             })
         }
 
+        "begin_tx" => {
+            match tools_v15_a::handle_begin_tx(args) {
+                Ok(val) => json!({
+                    "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}]
+                }),
+                Err(err) => json!({
+                    "content": [{"type": "text", "text": format!("Error: {}", err)}],
+                    "isError": true
+                }),
+            }
+        }
+
+        "stage_tx" => {
+            match tools_v15_a::handle_stage_tx(args) {
+                Ok(val) => json!({
+                    "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}]
+                }),
+                Err(err) => json!({
+                    "content": [{"type": "text", "text": format!("Error: {}", err)}],
+                    "isError": true
+                }),
+            }
+        }
+
+        "commit_tx" => {
+            match tools_v15_a::handle_commit_tx(args) {
+                Ok(val) => json!({
+                    "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}]
+                }),
+                Err(err) => json!({
+                    "content": [{"type": "text", "text": format!("Error: {}", err)}],
+                    "isError": true
+                }),
+            }
+        }
+
+        "rollback_tx" => {
+            match tools_v15_a::handle_rollback_tx(args) {
+                Ok(val) => json!({
+                    "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}]
+                }),
+                Err(err) => json!({
+                    "content": [{"type": "text", "text": format!("Error: {}", err)}],
+                    "isError": true
+                }),
+            }
+        }
+
+        "auto_remediate" => {
+            match tools_v15_a::handle_auto_remediate(args) {
+                Ok(val) => json!({
+                    "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}]
+                }),
+                Err(err) => json!({
+                    "content": [{"type": "text", "text": format!("Error: {}", err)}],
+                    "isError": true
+                }),
+            }
+        }
+
+        "acquire_symbol_lease" => {
+            let fqn = match args.get("fqn").and_then(|s| s.as_str()) {
+                Some(f) => f,
+                None => return json!({"content": [{"type": "text", "text": "Error: 'fqn' argument is required"}], "isError": true}),
+            };
+            let agent_id = match args.get("agent_id").and_then(|s| s.as_str()) {
+                Some(a) => a,
+                None => return json!({"content": [{"type": "text", "text": "Error: 'agent_id' argument is required"}], "isError": true}),
+            };
+            let ttl_ms = args.get("ttl_ms").and_then(|v| v.as_u64()).unwrap_or(60000);
+            let status = LEASE_REGISTRY.acquire(fqn, agent_id, ttl_ms);
+            json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&status).unwrap_or_default()}]
+            })
+        }
+
+        "release_symbol_lease" => {
+            let lease_id = match args.get("lease_id").and_then(|s| s.as_str()) {
+                Some(l) => l,
+                None => return json!({"content": [{"type": "text", "text": "Error: 'lease_id' argument is required"}], "isError": true}),
+            };
+            let agent_id = match args.get("agent_id").and_then(|s| s.as_str()) {
+                Some(a) => a,
+                None => return json!({"content": [{"type": "text", "text": "Error: 'agent_id' argument is required"}], "isError": true}),
+            };
+            let status = LEASE_REGISTRY.release(lease_id, agent_id);
+            json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&status).unwrap_or_default()}]
+            })
+        }
+
+        "renew_symbol_lease" => {
+            let lease_id = match args.get("lease_id").and_then(|s| s.as_str()) {
+                Some(l) => l,
+                None => return json!({"content": [{"type": "text", "text": "Error: 'lease_id' argument is required"}], "isError": true}),
+            };
+            let agent_id = match args.get("agent_id").and_then(|s| s.as_str()) {
+                Some(a) => a,
+                None => return json!({"content": [{"type": "text", "text": "Error: 'agent_id' argument is required"}], "isError": true}),
+            };
+            let extension_ms = args.get("extension_ms").and_then(|v| v.as_u64()).unwrap_or(60000);
+            let status = LEASE_REGISTRY.renew(lease_id, agent_id, extension_ms);
+            json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&status).unwrap_or_default()}]
+            })
+        }
+
+        "trace_taint_flow" => {
+            let file_path = match args.get("file_path").and_then(|s| s.as_str()) {
+                Some(f) => f,
+                None => return json!({"content": [{"type": "text", "text": "Error: 'file_path' argument is required"}], "isError": true}),
+            };
+            let symbol = args.get("symbol").and_then(|s| s.as_str()).unwrap_or("*");
+            let content = match fs::read_to_string(file_path) {
+                Ok(c) => c,
+                Err(e) => return json!({"content": [{"type": "text", "text": format!("Error reading file '{}': {}", file_path, e)}], "isError": true}),
+            };
+            let reports = crate::taint::DataFlowTracker::analyze_source(file_path, symbol, &content);
+            let null_reports = crate::taint::NullPropagationTracker::scan_nullable_flows(file_path, &content);
+            let mut all_reports = reports;
+            all_reports.extend(null_reports);
+            json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&all_reports).unwrap_or_default()}]
+            })
+        }
+
+        "hybrid_search" => {
+            let query = match args.get("query").and_then(|s| s.as_str()) {
+                Some(q) => q,
+                None => return json!({"content": [{"type": "text", "text": "Error: 'query' argument is required"}], "isError": true}),
+            };
+            let path = args.get("path").and_then(|s| s.as_str()).unwrap_or(".");
+            let top_k = args.get("top_k").and_then(|v| v.as_u64()).unwrap_or(5) as usize;
+
+            let graph = SymbolGraph::index_directory(path);
+            let matcher = crate::search::HybridMatcher::new();
+            matcher.index_graph(&graph);
+            let result = matcher.search(query, top_k);
+            json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&result).unwrap_or_default()}]
+            })
+        }
+
         _ => {
             json!({
                 "content": [{"type": "text", "text": format!("Unknown tool: {}", name)}],
@@ -1047,7 +1373,7 @@ mod tests {
         let resp = handle_json_rpc_message(list_req).expect("Response expected");
         let parsed: Value = serde_json::from_str(&resp).unwrap();
         let tools = parsed["result"]["tools"].as_array().expect("Tools array");
-        assert_eq!(tools.len(), 12);
+        assert_eq!(tools.len(), 22);
 
         let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
         assert!(names.contains(&"check_safety"));
@@ -1062,6 +1388,16 @@ mod tests {
         assert!(names.contains(&"find_references"));
         assert!(names.contains(&"prepare_context"));
         assert!(names.contains(&"verified_patch"));
+        assert!(names.contains(&"begin_tx"));
+        assert!(names.contains(&"stage_tx"));
+        assert!(names.contains(&"commit_tx"));
+        assert!(names.contains(&"rollback_tx"));
+        assert!(names.contains(&"auto_remediate"));
+        assert!(names.contains(&"acquire_symbol_lease"));
+        assert!(names.contains(&"release_symbol_lease"));
+        assert!(names.contains(&"renew_symbol_lease"));
+        assert!(names.contains(&"trace_taint_flow"));
+        assert!(names.contains(&"hybrid_search"));
     }
 
     #[test]

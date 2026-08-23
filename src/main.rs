@@ -1,5 +1,7 @@
 //! locus CLI — High-speed deterministic verification and AST semantic tooling.
 
+#![forbid(unsafe_code)]
+
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -7,12 +9,13 @@ use std::process;
 use std::time::Instant;
 
 use locus_engine::{
-    run_stdio_server, AstDiffEngine, AstGuard, ContextSlicer, ContractSynthesizer, Language, SymbolGraph,
+    run_stdio_server, AstDiffEngine, AstGuard, AutoFixer, ContextSlicer, ContractSynthesizer,
+    DataFlowTracker, HybridMatcher, Language, LeaseRegistry, NullPropagationTracker, SymbolGraph,
 };
 
 fn print_usage() {
     eprintln!(
-        r#"locus-engine CLI v1.0.0
+        r#"locus-engine CLI v1.5.0
 
 USAGE:
     locus check <file_path>
@@ -23,6 +26,10 @@ USAGE:
     locus impact <symbol_name> <file_or_dir> [--depth <depth>]
     locus refs <symbol_name> <directory_path>
     locus patch <file_path> --symbol <symbol_name> --with <new_code>
+    locus fix <file_path>
+    locus search <query> [<directory_path>]
+    locus taint <file_path> [<symbol_name>]
+    locus lease <acquire|release|list> ...
     locus mcp
 
 COMMANDS:
@@ -34,6 +41,10 @@ COMMANDS:
     impact      Analyze blast-radius impact and breaking change risk of modifying a symbol
     refs        Find all inbound references, imports, and call sites of a symbol across the project
     patch       Surgically replace a named AST symbol with new code
+    fix         Deterministically remediate unclosed JSX, null access, and conditional hooks
+    search      Execute sub-millisecond in-memory hybrid AST lexical + HNSW vector search
+    taint       Trace cross-file taint flows, unvalidated inputs, and unhandled Option/null returns
+    lease       Manage multi-agent concurrency leases on fully qualified symbols (FQN)
     mcp         Start MCP server over stdio for Claude Code, Cursor, and Antigravity
 "#
     );
@@ -148,138 +159,182 @@ fn main() {
             };
 
             let report = AstGuard::verify(&content);
-            println!("\n+-------------------------------------------------------------+");
-            println!("|                  LOCUS AST GUARD VERIFICATION               |");
-            println!("+-------------------------------------------------------------+");
-            println!(" Target File: {}", file_path);
-            println!(" Verified Latency: {:.4} ms", report.latency_ms);
             if report.passed {
-                println!(" Status: [PASS] All Deterministic Safety Invariants Validated");
+                println!("PASS: '{}' verified safe across 20 invariant rules ({:.2}ms)", file_path, report.latency_ms);
             } else {
-                println!(" Status: [FAIL] Invariant Violation Detected");
-                if let Some(v) = report.violation {
-                    println!(" Violation Kind: {}", v);
+                eprintln!("FAIL: '{}' violated safety invariants ({:.2}ms):", file_path, report.latency_ms);
+                for v in report.violations {
+                    eprintln!("  - {}", v);
                 }
-                if let Some(detail) = report.detail {
-                    println!(" Violation Detail: {}", detail);
-                }
+                process::exit(1);
             }
-            println!("+-------------------------------------------------------------+\n");
+        }
 
-            if !report.passed {
-                process::exit(2);
+        "fix" => {
+            if args.len() < 3 {
+                eprintln!("Error: Missing <file_path> for 'fix' command.");
+                process::exit(1);
+            }
+            let file_path = &args[2];
+            let content = match fs::read_to_string(file_path) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("Error reading '{}': {}", file_path, e);
+                    process::exit(1);
+                }
+            };
+
+            let res = AutoFixer::remediate(&content);
+            if res.success {
+                if let Err(e) = fs::write(file_path, &res.remediated_code) {
+                    eprintln!("Error writing fixed code to '{}': {}", file_path, e);
+                    process::exit(1);
+                }
+                println!("Fixed '{}' ({} edits applied, verified safe in {:.2}ms)", file_path, res.edits_applied.len(), res.latency_ms);
+            } else {
+                println!("No automatic fixes applied (or manual intervention required).");
             }
         }
 
         "graph" => {
-            if args.len() < 3 {
-                eprintln!("Error: Missing <directory_path> for 'graph' command.");
-                process::exit(1);
-            }
-            let dir_path = &args[2];
-            let graph = SymbolGraph::index_directory(dir_path);
-            let health = graph.analyze_architectural_health();
+            let path = if args.len() > 2 { &args[2] } else { "." };
+            let start = Instant::now();
+            let graph = SymbolGraph::index_directory(path);
+            let elapsed = start.elapsed();
+            let cycles = graph.detect_import_cycles();
 
-            println!("\n+-------------------------------------------------------------+");
-            println!("|                   LOCUS SYMBOL GRAPH INDEX                  |");
-            println!("+-------------------------------------------------------------+");
-            println!(" Indexed Root: {}", dir_path);
-            println!(" Total Indexed Files: {}", health.total_files);
-            println!(" Extracted AST Symbols: {}", health.total_symbols);
-            println!(" Cross-Symbol Dependency Edges: {}", health.total_edges);
-            println!(" Circular Dependency Cycles: {}", health.circular_dependencies.len());
-            if !health.circular_dependencies.is_empty() {
-                for (idx, cycle) in health.circular_dependencies.iter().enumerate() {
-                    println!("   Cycle #{}: {}", idx + 1, cycle.join(" -> "));
+            println!("Indexed directory: '{}' ({:.2}ms)", path, elapsed.as_secs_f64() * 1000.0);
+            println!("Total files: {}, Symbols: {}, Dependency edges: {}", graph.file_to_symbols.len(), graph.nodes.len(), graph.edges.len());
+            if !cycles.is_empty() {
+                println!("WARNING: Circular dependencies detected:");
+                for cycle in cycles {
+                    println!("  - {}", cycle.join(" -> "));
                 }
             }
-            println!(" Orphan and Unused Exports: {}", health.orphan_exports.len());
-            if !health.orphan_exports.is_empty() {
-                for orphan in health.orphan_exports.iter().take(5) {
-                    println!("   - {}", orphan);
-                }
-                if health.orphan_exports.len() > 5 {
-                    println!("   ... and {} more", health.orphan_exports.len() - 5);
-                }
-            }
-            println!(" Indexing Latency: {:.2} ms", health.latency_ms);
-            println!("+-------------------------------------------------------------+\n");
         }
 
         "impact" => {
-            if args.len() < 4 {
-                eprintln!("Usage: locus impact <symbol_name> <file_or_directory> [--depth <depth>]");
+            if args.len() < 3 {
+                eprintln!("Usage: locus impact <symbol_name> [<file_or_dir>] [--depth <depth>]");
                 process::exit(1);
             }
             let symbol = &args[2];
-            let target = &args[3];
+            let path = if args.len() > 3 && !args[3].starts_with("--") { &args[3] } else { "." };
             let mut depth = 2usize;
-            if args.len() > 5 && args[4] == "--depth" {
-                depth = args[5].parse().unwrap_or(2);
+            if let Some(pos) = args.iter().position(|a| a == "--depth") {
+                if pos + 1 < args.len() {
+                    depth = args[pos + 1].parse().unwrap_or(2);
+                }
             }
 
-            let path_obj = Path::new(target);
-            let (graph, file_opt) = if path_obj.is_dir() {
-                (SymbolGraph::index_directory(target), None)
-            } else {
-                let dir = path_obj.parent().unwrap_or(Path::new("."));
-                let g = SymbolGraph::index_directory(dir);
-                let rel = path_obj.to_string_lossy().replace('\\', "/");
-                (g, Some(rel))
-            };
-
-            let report = graph.calculate_blast_radius(symbol, file_opt.as_deref(), depth);
-
-            println!("\n+-------------------------------------------------------------+");
-            println!("|                  LOCUS BLAST RADIUS REPORT                  |");
-            println!("+-------------------------------------------------------------+");
-            println!(" Target Symbol: {}", report.symbol);
-            println!(" Origin File: {}", report.origin_file);
-            println!(" Breaking Change Risk: [{}]", report.risk_score);
-            println!(" Inbound Reference Sites: {}", report.reference_count);
-            println!(" Direct Dependents ({}):", report.direct_dependents.len());
-            for dep in &report.direct_dependents {
-                println!("   - {}", dep);
-            }
-            println!(" Transitive Dependents ({}):", report.transitive_dependents.len());
-            for dep in &report.transitive_dependents {
-                println!("   - {}", dep);
-            }
-            println!(" Impacted Files Set ({}):", report.affected_files.len());
-            for f in &report.affected_files {
-                println!("   * {}", f);
-            }
-            println!(" Analysis Latency: {:.4} ms", report.latency_ms);
-            println!("+-------------------------------------------------------------+\n");
+            let graph = SymbolGraph::index_directory(path);
+            let report = graph.calculate_blast_radius(symbol, None, depth);
+            println!("Blast Radius for symbol '{}' [Risk: {}]:", symbol, report.risk_score);
+            println!("  Direct dependents ({}): {:?}", report.direct_dependents.len(), report.direct_dependents);
+            println!("  Affected files ({}): {:?}", report.affected_files.len(), report.affected_files);
         }
 
         "refs" => {
-            if args.len() < 4 {
-                eprintln!("Usage: locus refs <symbol_name> <directory_path>");
+            if args.len() < 3 {
+                eprintln!("Usage: locus refs <symbol_name> [<directory_path>]");
                 process::exit(1);
             }
             let symbol = &args[2];
-            let dir_path = &args[3];
-
-            let start = Instant::now();
-            let graph = SymbolGraph::index_directory(dir_path);
+            let path = if args.len() > 3 { &args[3] } else { "." };
+            let graph = SymbolGraph::index_directory(path);
             let refs = graph.find_references(symbol);
-            let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
-
-            println!("\n+-------------------------------------------------------------+");
-            println!("|                   LOCUS SYMBOL REFERENCES                   |");
-            println!("+-------------------------------------------------------------+");
-            println!(" Target Symbol: {}", symbol);
-            println!(" Total Occurrences Found: {}", refs.len());
-            println!(" Query Latency: {:.4} ms", elapsed_ms);
-            for (idx, r) in refs.iter().enumerate() {
-                println!(" {:2}. {}:{} | {}", idx + 1, r.file, r.line, r.context_snippet);
+            println!("Found {} references to '{}':", refs.len(), symbol);
+            for r in refs {
+                println!("  - {}:{}: {}", r.file, r.line, r.context_snippet);
             }
-            println!("+-------------------------------------------------------------+\n");
+        }
+
+        "search" => {
+            if args.len() < 3 {
+                eprintln!("Usage: locus search <query> [<directory_path>]");
+                process::exit(1);
+            }
+            let query = &args[2];
+            let path = if args.len() > 3 { &args[3] } else { "." };
+            let graph = SymbolGraph::index_directory(path);
+            let matcher = HybridMatcher::new();
+            matcher.index_graph(&graph);
+            let res = matcher.search(query, 5);
+
+            println!("Search results for '{}' ({:.2}ms):", query, res.latency_ms);
+            for (idx, hit) in res.hits.iter().enumerate() {
+                println!("  {}. {} (score: {:.2}) - {}", idx + 1, hit.symbol_name, hit.score, hit.file_path);
+                println!("     {}", hit.signature);
+            }
+        }
+
+        "taint" => {
+            if args.len() < 3 {
+                eprintln!("Usage: locus taint <file_path> [<symbol_name>]");
+                process::exit(1);
+            }
+            let file_path = &args[2];
+            let symbol = if args.len() > 3 { &args[3] } else { "*" };
+            let content = match fs::read_to_string(file_path) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("Error reading '{}': {}", file_path, e);
+                    process::exit(1);
+                }
+            };
+            let flow_reports = DataFlowTracker::analyze_source(file_path, symbol, &content);
+            let null_reports = NullPropagationTracker::scan_nullable_flows(file_path, &content);
+
+            println!("Taint analysis for '{}':", file_path);
+            let total = flow_reports.len() + null_reports.len();
+            if total == 0 {
+                println!("  No unvalidated taint flows or unhandled null dereferences detected.");
+            } else {
+                for r in flow_reports {
+                    println!("  [TAINT] {} -> {} sinks (Risk: {})", r.source.variable, r.sinks.len(), r.violation_risk);
+                }
+                for r in null_reports {
+                    println!("  [NULL] Unhandled return from '{}' (Risk: {})", r.source.symbol, r.violation_risk);
+                }
+            }
+        }
+
+        "lease" => {
+            if args.len() < 3 {
+                eprintln!("Usage: locus lease <acquire|release|list> [arguments...]");
+                process::exit(1);
+            }
+            let reg = LeaseRegistry::new();
+            match args[2].as_str() {
+                "acquire" if args.len() >= 5 => {
+                    let fqn = &args[3];
+                    let agent = &args[4];
+                    let ttl = if args.len() > 5 { args[5].parse().unwrap_or(60000) } else { 60000 };
+                    let status = reg.acquire(fqn, agent, ttl);
+                    println!("{:?}", status);
+                }
+                "release" if args.len() >= 5 => {
+                    let lease_id = &args[3];
+                    let agent = &args[4];
+                    let status = reg.release(lease_id, agent);
+                    println!("{:?}", status);
+                }
+                "list" => {
+                    let active = reg.list_active_leases();
+                    println!("Active leases: {}", active.len());
+                    for l in active {
+                        println!("  - {} (held by '{}', expires in {}ms)", l.fqn, l.holder_agent_id, l.ttl_ms);
+                    }
+                }
+                _ => {
+                    eprintln!("Invalid lease command format.");
+                    process::exit(1);
+                }
+            }
         }
 
         "patch" => {
-            if args.len() < 7 {
+            if args.len() < 3 {
                 eprintln!("Usage: locus patch <file_path> --symbol <symbol_name> --with <new_code>");
                 process::exit(1);
             }
@@ -290,21 +345,13 @@ fn main() {
             let mut i = 3;
             while i < args.len() {
                 match args[i].as_str() {
-                    "--symbol" => {
-                        if i + 1 < args.len() {
-                            symbol_name = Some(args[i + 1].clone());
-                            i += 2;
-                        } else {
-                            i += 1;
-                        }
+                    "--symbol" if i + 1 < args.len() => {
+                        symbol_name = Some(args[i + 1].clone());
+                        i += 2;
                     }
-                    "--with" => {
-                        if i + 1 < args.len() {
-                            new_code = Some(args[i + 1].clone());
-                            i += 2;
-                        } else {
-                            i += 1;
-                        }
+                    "--with" if i + 1 < args.len() => {
+                        new_code = Some(args[i + 1].clone());
+                        i += 2;
                     }
                     _ => i += 1,
                 }

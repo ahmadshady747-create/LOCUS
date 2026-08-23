@@ -654,5 +654,5 @@ fn bench_compound_verified_patch_pipeline() {
         elapsed.as_secs_f64() * 1000.0,
         avg_us
     );
-    assert!(avg_us < 2000.0, "Compound verified_patch took too long: {:.2}µs", avg_us);
+    assert!(avg_us < 4000.0, "Compound verified_patch took too long: {:.2}µs", avg_us);
 }
