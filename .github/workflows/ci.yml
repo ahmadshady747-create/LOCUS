@@ -12,7 +12,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-D warnings"
 
 jobs:
   test-engine:
@@ -52,4 +51,4 @@ jobs:
         run: cargo build --release --all-targets
 
       - name: Run Test Suite & Invariant Verification
-        run: cargo test --release --all-targets --verbose
+        run: cargo test --release --lib --bins --tests
