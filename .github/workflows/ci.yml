@@ -1,32 +1,55 @@
-﻿name: "CI — Systems Engine Verification & Tests"
+name: "CI — Systems Engine Verification & Tests"
 
 on:
   push:
     branches:
       - main
+      - master
   pull_request:
     branches:
       - main
+      - master
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
 
 jobs:
   test-engine:
-    name: "Rust Systems Test & Benchmarks (${{ matrix.os }})"
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+    name: "Rust Systems Test (${{ matrix.os }})"
     runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Install System Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libssl-dev
+
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
 
-      - name: Rust Cache
-        uses: swatinem/rust-cache@v2
+      - name: Setup Rust Cache
+        uses: Swatinem/rust-cache@v2
 
-      - name: Run All Unit & Integration Tests
-        run: cargo test --all-targets
+      - name: Check Formatting (Linux)
+        if: runner.os == 'Linux'
+        run: cargo fmt --all -- --check
 
-      - name: Run Release Benchmarks Suite
-        run: cargo test --release --test benchmarks -- --nocapture
+      - name: Run Clippy Linter
+        run: cargo clippy --all-targets --all-features
+
+      - name: Build Release Binaries & Targets
+        run: cargo build --release --all-targets
+
+      - name: Run Test Suite & Invariant Verification
+        run: cargo test --release --all-targets --verbose
