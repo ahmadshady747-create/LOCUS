@@ -7,31 +7,31 @@
 
 #![forbid(unsafe_code)]
 
+use regex::Regex;
 use std::sync::LazyLock;
 use std::time::Instant;
-use regex::Regex;
 
 use crate::guard::AstGuard;
 use crate::remediate::patch_strategy::PatchStrategy;
 use crate::types::{RemediationEdit, RemediationKind, RemediationResult};
 
-static RE_JSX_OPEN_TAG: LazyLock<Regex> = LazyLock::new(|| {
-    match Regex::new(r#"<([a-zA-Z][a-zA-Z0-9.-]*)(?:\s+[^>]*)?>"#) {
-        Ok(re) => re,
-        Err(_) => Regex::new(r#"<[a-zA-Z]+"#).expect("static regex"),
-    }
-});
+static RE_JSX_OPEN_TAG: LazyLock<Regex> =
+    LazyLock::new(
+        || match Regex::new(r#"<([a-zA-Z][a-zA-Z0-9.-]*)(?:\s+[^>]*)?>"#) {
+            Ok(re) => re,
+            Err(_) => Regex::new(r#"<[a-zA-Z]+"#).expect("static regex"),
+        },
+    );
 
-static RE_JSX_CLOSE_TAG: LazyLock<Regex> = LazyLock::new(|| {
-    match Regex::new(r#"</([a-zA-Z][a-zA-Z0-9.-]*)>"#) {
+static RE_JSX_CLOSE_TAG: LazyLock<Regex> =
+    LazyLock::new(|| match Regex::new(r#"</([a-zA-Z][a-zA-Z0-9.-]*)>"#) {
         Ok(re) => re,
         Err(_) => Regex::new(r#"</[a-zA-Z]+"#).expect("static regex"),
-    }
-});
+    });
 
 static RE_VOID_TAGS: &[&str] = &[
-    "img", "input", "br", "hr", "meta", "link", "area", "base", "col", "embed",
-    "param", "source", "track", "wbr"
+    "img", "input", "br", "hr", "meta", "link", "area", "base", "col", "embed", "param", "source",
+    "track", "wbr",
 ];
 
 static RE_NULL_DEREF_CANDIDATE: LazyLock<Regex> = LazyLock::new(|| {
@@ -42,7 +42,9 @@ static RE_NULL_DEREF_CANDIDATE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 static RE_CONDITIONAL_HOOK: LazyLock<Regex> = LazyLock::new(|| {
-    match Regex::new(r#"(?s)(if\s*\([^)]*\)\s*\{[^}]*?)(\b(?:const|let)\s+(?:\[[^\]]+\]|\w+)\s*=\s*use[A-Z]\w*\s*\([^;]*\);?)([^}]*\})"#) {
+    match Regex::new(
+        r#"(?s)(if\s*\([^)]*\)\s*\{[^}]*?)(\b(?:const|let)\s+(?:\[[^\]]+\]|\w+)\s*=\s*use[A-Z]\w*\s*\([^;]*\);?)([^}]*\})"#,
+    ) {
         Ok(re) => re,
         Err(_) => Regex::new(r"if.*use[A-Z]").expect("static regex"),
     }
@@ -102,8 +104,10 @@ impl AutoFixer {
                 let matched_str = full_match.as_str();
 
                 // Skip if already has optional chaining or is module/namespace import
-                if matched_str.starts_with("process.env") || matched_str.starts_with("import.meta")
-                    || matched_str.starts_with("console.log") || matched_str.starts_with("std::")
+                if matched_str.starts_with("process.env")
+                    || matched_str.starts_with("import.meta")
+                    || matched_str.starts_with("console.log")
+                    || matched_str.starts_with("std::")
                 {
                     continue;
                 }
@@ -111,7 +115,10 @@ impl AutoFixer {
                 let replacement = matched_str.replace('.', "?.");
                 edits.push(PatchStrategy::create_edit(
                     RemediationKind::OptionalChaining,
-                    format!("Converted '{}' to optional chaining '{}'", matched_str, replacement),
+                    format!(
+                        "Converted '{}' to optional chaining '{}'",
+                        matched_str, replacement
+                    ),
                     full_match.start(),
                     full_match.end(),
                     replacement,
@@ -128,15 +135,14 @@ impl AutoFixer {
         let mut edits = Vec::new();
 
         for cap in RE_CONDITIONAL_HOOK.captures_iter(source) {
-            if let (Some(full_match), Some(if_before), Some(hook_stmt), Some(if_after)) = (
-                cap.get(0),
-                cap.get(1),
-                cap.get(2),
-                cap.get(3),
-            ) {
+            if let (Some(full_match), Some(if_before), Some(hook_stmt), Some(if_after)) =
+                (cap.get(0), cap.get(1), cap.get(2), cap.get(3))
+            {
                 let hook_str = hook_stmt.as_str().trim();
                 let remaining_if = format!("{}{}", if_before.as_str(), if_after.as_str());
-                let clean_if = remaining_if.replace("{\n\n", "{\n").replace("{\n    \n", "{\n");
+                let clean_if = remaining_if
+                    .replace("{\n\n", "{\n")
+                    .replace("{\n    \n", "{\n");
                 let replacement = format!("{}\n{}", hook_str, clean_if);
 
                 edits.push(PatchStrategy::create_edit(

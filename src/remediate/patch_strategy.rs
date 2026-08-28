@@ -15,7 +15,10 @@ impl PatchStrategy {
 
         let mut result = source.to_string();
         for edit in edits {
-            if edit.byte_start <= result.len() && edit.byte_end <= result.len() && edit.byte_start <= edit.byte_end {
+            if edit.byte_start <= result.len()
+                && edit.byte_end <= result.len()
+                && edit.byte_start <= edit.byte_end
+            {
                 result.replace_range(edit.byte_start..edit.byte_end, &edit.replacement);
             }
         }

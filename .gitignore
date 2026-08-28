@@ -1,31 +1,27 @@
 # Rust
-target/
-src-tauri/target/
+/target
+/target_build
+/target_test
+/src-tauri/target
 **/*.rs.bk
 *.zip
 
 # Node
-node_modules/
-dist/
-src/node_modules/
-src/dist/
-src/dist-ssr/
-.playwright-browsers/
+/node_modules
+/dist
+/src/node_modules
+/src/dist
+/src/dist-ssr
+/.playwright-browsers
 
-# Locus Runtime
-.locus/
-.locus_history/
-
-# Tauri & Security
-src-tauri/gen/schemas/
-src-tauri/gen/android/
-src-tauri/gen/apple/
-src-tauri/*.key
-*.key
+# Locus Runtime & Benchmarks
+/.locus
+/.locus_history
+/live_benchmark
 
 # Editor
-.idea/
-.vscode/
+/.idea
+/.vscode
 *.swp
 
 # OS
@@ -34,4 +30,4 @@ Thumbs.db
 
 # Logs
 *.log
-logs/
+/logs

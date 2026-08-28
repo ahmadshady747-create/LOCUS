@@ -3,9 +3,9 @@
 //! Extracts minimal, high-relevance AST context slices by traversing the semantic SymbolGraph
 //! up to N degrees of dependency separation, eliminating 100% of architectural noise.
 
+use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
 use std::time::Instant;
-use serde::{Deserialize, Serialize};
 
 use crate::diff::AstDiffEngine;
 use crate::graph::SymbolGraph;
@@ -104,7 +104,10 @@ impl ContextSlicer {
         // Preserve header imports/directives
         for line in source.lines().take(15) {
             let trimmed = line.trim();
-            if trimmed.starts_with("import ") || trimmed.starts_with("use ") || trimmed.starts_with("\"use client\"") {
+            if trimmed.starts_with("import ")
+                || trimmed.starts_with("use ")
+                || trimmed.starts_with("\"use client\"")
+            {
                 slice.push_str(trimmed);
                 slice.push('\n');
             }
@@ -138,7 +141,8 @@ impl ContextSlicer {
         let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
         let original_len = source.len().max(1);
         let slice_len = slice.len();
-        let token_reduction_percent = 100.0 * (1.0 - (slice_len as f64 / original_len as f64)).max(0.0);
+        let token_reduction_percent =
+            100.0 * (1.0 - (slice_len as f64 / original_len as f64)).max(0.0);
 
         IntentSlice {
             target_symbol: target_symbol.to_string(),
@@ -151,11 +155,7 @@ impl ContextSlicer {
     }
 
     /// Extracts a context slice across an entire multi-file `SymbolGraph`.
-    pub fn slice_from_graph(
-        graph: &SymbolGraph,
-        target_symbol: &str,
-        depth: usize,
-    ) -> IntentSlice {
+    pub fn slice_from_graph(graph: &SymbolGraph, target_symbol: &str, depth: usize) -> IntentSlice {
         let start = Instant::now();
 
         let target_node = graph.nodes.values().find(|n| n.name == target_symbol);
@@ -167,7 +167,10 @@ impl ContextSlicer {
                     target_symbol: target_symbol.to_string(),
                     depth,
                     included_symbols: Vec::new(),
-                    sliced_code: format!("// Target symbol '{}' not found in SymbolGraph.", target_symbol),
+                    sliced_code: format!(
+                        "// Target symbol '{}' not found in SymbolGraph.",
+                        target_symbol
+                    ),
                     token_reduction_percent: 0.0,
                     latency_ms,
                 };
@@ -209,7 +212,9 @@ impl ContextSlicer {
         let mut slice = String::new();
         slice.push_str(&format!(
             "// --- LOCUS Multi-File Intent Slice: '{}' (Indexed Symbols: {}, Depth: {}) ---\n\n",
-            target_symbol, included_symbols.len(), depth
+            target_symbol,
+            included_symbols.len(),
+            depth
         ));
 
         let mut current_file = "";
@@ -220,9 +225,15 @@ impl ContextSlicer {
             }
 
             if node.id == target_id {
-                slice.push_str(&format!("// [Target Symbol Definition]\n{}\n\n", node.signature));
+                slice.push_str(&format!(
+                    "// [Target Symbol Definition]\n{}\n\n",
+                    node.signature
+                ));
             } else {
-                slice.push_str(&format!("// [Dependency Signature: {:?}]\n{};\n\n", node.kind, node.signature));
+                slice.push_str(&format!(
+                    "// [Dependency Signature: {:?}]\n{};\n\n",
+                    node.kind, node.signature
+                ));
             }
         }
 

@@ -1,0 +1,231 @@
+{
+  "total_tools": 22,
+  "summary": {
+    "AST Engine": {
+      "passed": 2,
+      "total": 2,
+      "latencies": [
+        0.6034998223185539,
+        0.5851006135344505
+      ]
+    },
+    "Context Management": {
+      "passed": 2,
+      "total": 2,
+      "latencies": [
+        0.5980003625154495,
+        0.5828998982906342
+      ]
+    },
+    "Safety Invariants": {
+      "passed": 5,
+      "total": 5,
+      "latencies": [
+        0.5823997780680656,
+        0.5839001387357712,
+        0.5544004961848259,
+        0.5400991067290306,
+        0.5393000319600105
+      ]
+    },
+    "Concurrency": {
+      "passed": 2,
+      "total": 2,
+      "latencies": [
+        0.5494998767971992,
+        0.5806004628539085
+      ]
+    },
+    "Atomic Operations": {
+      "passed": 2,
+      "total": 2,
+      "latencies": [
+        0.5783000960946083,
+        0.5937004461884499
+      ]
+    },
+    "Dependency Graph": {
+      "passed": 3,
+      "total": 3,
+      "latencies": [
+        0.5738995969295502,
+        0.582999549806118,
+        0.5828998982906342
+      ]
+    },
+    "Formal Logic": {
+      "passed": 3,
+      "total": 3,
+      "latencies": [
+        0.5842000246047974,
+        0.5820998921990395,
+        0.582999549806118
+      ]
+    },
+    "Protocol & RPC": {
+      "passed": 3,
+      "total": 3,
+      "latencies": [
+        0.5821995437145233,
+        0.5821995437145233,
+        0.582600012421608
+      ]
+    }
+  },
+  "details": [
+    {
+      "id": 1,
+      "name": "locus/skeletonize",
+      "category": "AST Engine",
+      "status": "PASSED",
+      "latency_ms": 0.6034998223185539
+    },
+    {
+      "id": 2,
+      "name": "locus/slice_ast",
+      "category": "AST Engine",
+      "status": "PASSED",
+      "latency_ms": 0.5851006135344505
+    },
+    {
+      "id": 3,
+      "name": "locus/prepare_context",
+      "category": "Context Management",
+      "status": "PASSED",
+      "latency_ms": 0.5980003625154495
+    },
+    {
+      "id": 4,
+      "name": "locus/compress_context",
+      "category": "Context Management",
+      "status": "PASSED",
+      "latency_ms": 0.5828998982906342
+    },
+    {
+      "id": 5,
+      "name": "locus/check_safety",
+      "category": "Safety Invariants",
+      "status": "PASSED",
+      "latency_ms": 0.5823997780680656
+    },
+    {
+      "id": 6,
+      "name": "locus/check_safety",
+      "category": "Safety Invariants",
+      "status": "PASSED",
+      "latency_ms": 0.5839001387357712
+    },
+    {
+      "id": 7,
+      "name": "locus/check_safety",
+      "category": "Safety Invariants",
+      "status": "PASSED",
+      "latency_ms": 0.5544004961848259
+    },
+    {
+      "id": 8,
+      "name": "locus/check_safety",
+      "category": "Safety Invariants",
+      "status": "PASSED",
+      "latency_ms": 0.5400991067290306
+    },
+    {
+      "id": 9,
+      "name": "locus/check_safety",
+      "category": "Safety Invariants",
+      "status": "PASSED",
+      "latency_ms": 0.5393000319600105
+    },
+    {
+      "id": 10,
+      "name": "locus/verify_send_sync",
+      "category": "Concurrency",
+      "status": "PASSED",
+      "latency_ms": 0.5494998767971992
+    },
+    {
+      "id": 11,
+      "name": "locus/detect_deadlocks",
+      "category": "Concurrency",
+      "status": "PASSED",
+      "latency_ms": 0.5806004628539085
+    },
+    {
+      "id": 12,
+      "name": "locus/atomic_multi_edit",
+      "category": "Atomic Operations",
+      "status": "PASSED",
+      "latency_ms": 0.5783000960946083
+    },
+    {
+      "id": 13,
+      "name": "locus/rollback_transaction",
+      "category": "Atomic Operations",
+      "status": "PASSED",
+      "latency_ms": 0.5937004461884499
+    },
+    {
+      "id": 14,
+      "name": "locus/analyze_graph",
+      "category": "Dependency Graph",
+      "status": "PASSED",
+      "latency_ms": 0.5738995969295502
+    },
+    {
+      "id": 15,
+      "name": "locus/find_symbol_references",
+      "category": "Dependency Graph",
+      "status": "PASSED",
+      "latency_ms": 0.582999549806118
+    },
+    {
+      "id": 16,
+      "name": "locus/trace_call_hierarchy",
+      "category": "Dependency Graph",
+      "status": "PASSED",
+      "latency_ms": 0.5828998982906342
+    },
+    {
+      "id": 17,
+      "name": "locus/verify_contract",
+      "category": "Formal Logic",
+      "status": "PASSED",
+      "latency_ms": 0.5842000246047974
+    },
+    {
+      "id": 18,
+      "name": "locus/check_state_determinism",
+      "category": "Formal Logic",
+      "status": "PASSED",
+      "latency_ms": 0.5820998921990395
+    },
+    {
+      "id": 19,
+      "name": "locus/synthesize_contract",
+      "category": "Formal Logic",
+      "status": "PASSED",
+      "latency_ms": 0.582999549806118
+    },
+    {
+      "id": 20,
+      "name": "locus/mcp_health_ping",
+      "category": "Protocol & RPC",
+      "status": "PASSED",
+      "latency_ms": 0.5821995437145233
+    },
+    {
+      "id": 21,
+      "name": "locus/mcp_list_capabilities",
+      "category": "Protocol & RPC",
+      "status": "PASSED",
+      "latency_ms": 0.5821995437145233
+    },
+    {
+      "id": 22,
+      "name": "locus/execute_polyglot_check",
+      "category": "Protocol & RPC",
+      "status": "PASSED",
+      "latency_ms": 0.582600012421608
+    }
+  ]
+}

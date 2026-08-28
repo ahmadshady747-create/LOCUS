@@ -1,8 +1,8 @@
 //! AstDiffEngine — Surgical node-level byte-span AST patching and skeleton extraction.
 
-use thiserror::Error;
 use crate::graph::SymbolGraph;
 use crate::types::Language;
+use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum DiffError {
@@ -20,7 +20,12 @@ pub struct AstDiffEngine;
 
 impl AstDiffEngine {
     /// Surgically replaces a named symbol's definition inside `source` with `new_code`.
-    pub fn patch(source: &str, symbol_name: &str, new_code: &str, lang: Language) -> Result<String, DiffError> {
+    pub fn patch(
+        source: &str,
+        symbol_name: &str,
+        new_code: &str,
+        lang: Language,
+    ) -> Result<String, DiffError> {
         let mut graph = SymbolGraph::new();
         graph.index_file_content("target", source, lang);
 
@@ -94,7 +99,10 @@ impl AstDiffEngine {
         // 1. Preserve all import statements
         for line in source.lines() {
             let trimmed = line.trim();
-            if trimmed.starts_with("import ") || trimmed.starts_with("\"use client\"") || trimmed.starts_with("'use client'") {
+            if trimmed.starts_with("import ")
+                || trimmed.starts_with("\"use client\"")
+                || trimmed.starts_with("'use client'")
+            {
                 skeleton.push_str(trimmed);
                 skeleton.push('\n');
             }
@@ -122,13 +130,22 @@ impl AstDiffEngine {
                 crate::types::SymbolKind::Function | crate::types::SymbolKind::Struct => {
                     // Check if signature contains JSX / Component render
                     let sig = &node.signature;
-                    let is_component = node.name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false);
-                    
-                    if is_component || sig.contains("JSX.Element") || sig.contains("ReactNode") || sig.contains("React.FC") {
+                    let is_component = node
+                        .name
+                        .chars()
+                        .next()
+                        .map(|c| c.is_uppercase())
+                        .unwrap_or(false);
+
+                    if is_component
+                        || sig.contains("JSX.Element")
+                        || sig.contains("ReactNode")
+                        || sig.contains("React.FC")
+                    {
                         // Count rough JSX tags inside the component body
                         let body = &source[node.byte_start..node.byte_end];
                         let tag_count = body.matches('<').count().max(1);
-                        
+
                         skeleton.push_str(sig);
                         skeleton.push_str(" {\n    // [JSX: ~");
                         skeleton.push_str(&tag_count.to_string());
@@ -231,7 +248,9 @@ export function UserTable({ users, onSelect }: UserTableProps) {
         let skeleton = AstDiffEngine::skeletonize(component, Language::Tsx);
         assert!(skeleton.contains("import React, { useState } from 'react';"));
         assert!(skeleton.contains("export interface UserTableProps"));
-        assert!(skeleton.contains("export function UserTable({ users, onSelect }: UserTableProps) {"));
+        assert!(
+            skeleton.contains("export function UserTable({ users, onSelect }: UserTableProps) {")
+        );
         assert!(skeleton.contains("// [JSX: ~"));
         assert!(!skeleton.contains("<thead>"));
         assert!(skeleton.len() < component.len() / 2);

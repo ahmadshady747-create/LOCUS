@@ -1,10 +1,10 @@
-//! Unified AST Lexical + Dense Embedding Context Retriever.
+//! Unified AST Lexical + Dense Embedding Context Retriever with Zero-Heap Query Path.
 
 #![forbid(unsafe_code)]
 
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::time::Instant;
-use parking_lot::RwLock;
 
 use crate::graph::SymbolGraph;
 use crate::search::hnsw_index::{HnswIndex, DEFAULT_DIM};
@@ -29,19 +29,28 @@ impl HybridMatcher {
         }
     }
 
-    /// Generate a deterministic 64-dimensional quantized embedding from text or symbol name.
-    pub fn embed_text(text: &str) -> Vec<i8> {
-        let mut vec = vec![0i8; DEFAULT_DIM];
-        let words: Vec<&str> = text.split(|c: char| !c.is_alphanumeric() && c != '_').filter(|w| !w.is_empty()).collect();
+    /// Generate a deterministic 64-dimensional quantized embedding on the stack without heap allocation.
+    pub fn embed_text_fixed(text: &str) -> [i8; DEFAULT_DIM] {
+        let mut arr = [0i8; DEFAULT_DIM];
+        let mut word_idx = 0;
 
-        for (i, word) in words.iter().enumerate() {
+        for word in text.split(|c: char| !c.is_alphanumeric() && c != '_') {
+            if word.is_empty() {
+                continue;
+            }
             let hash = fnv1a_64(word.as_bytes());
             let dim_idx = (hash as usize) % DEFAULT_DIM;
-            let weight = (100 / ((i + 1).min(10))) as i8;
-            vec[dim_idx] = vec[dim_idx].saturating_add(weight);
+            let weight = (100 / ((word_idx + 1).min(10))) as i8;
+            arr[dim_idx] = arr[dim_idx].saturating_add(weight);
+            word_idx += 1;
         }
 
-        vec
+        arr
+    }
+
+    /// Generate a deterministic 64-dimensional quantized embedding from text or symbol name.
+    pub fn embed_text(text: &str) -> Vec<i8> {
+        Self::embed_text_fixed(text).to_vec()
     }
 
     /// Index all symbols from an existing `SymbolGraph` into the hybrid search engine.
@@ -51,9 +60,9 @@ impl HybridMatcher {
 
         for node in graph.nodes.values() {
             let text_repr = format!("{} {} {}", node.name, node.kind, node.signature);
-            let embedding = Self::embed_text(&text_repr);
+            let embedding = Self::embed_text_fixed(&text_repr);
 
-            hnsw.insert(node.id, embedding);
+            hnsw.insert(node.id, embedding.to_vec());
             meta.insert(node.id, (node.clone(), node.signature.clone()));
         }
     }
@@ -61,12 +70,12 @@ impl HybridMatcher {
     /// Execute a hybrid semantic + lexical search across indexed symbols.
     pub fn search(&self, query: &str, top_k: usize) -> HybridSearchResult {
         let start = Instant::now();
-        let query_vec = Self::embed_text(query);
+        let query_vec = Self::embed_text_fixed(query);
         let hnsw = self.hnsw.read();
         let meta = self.symbol_metadata.read();
 
         let vector_hits = hnsw.search(&query_vec, top_k * 2);
-        let mut hits = Vec::new();
+        let mut hits = Vec::with_capacity(top_k * 2);
         let query_lower = query.to_lowercase();
 
         for (id, vector_score) in vector_hits {
@@ -93,7 +102,11 @@ impl HybridMatcher {
         }
 
         // Rank by final score descending
-        hits.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        hits.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         hits.truncate(top_k);
 
         let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;

@@ -7,12 +7,12 @@
 //! 4. Deterministic AST Self-Healing (AutoFixer)
 //! 5. Multi-File ACID Workspace Transactions with Rollback Guarantees
 
+use locus_engine::{
+    AstGuard, AstQueryEngine, AutoFixer, IncrementalParser, InvariantsExtended, Language, RuleMask,
+    RuleRunner, ViolationKind, WorkspaceTransaction,
+};
 use std::fs;
 use std::time::Instant;
-use locus_engine::{
-    AstGuard, AstQueryEngine, AutoFixer, IncrementalParser, InvariantsExtended, Language,
-    RuleMask, RuleRunner, ViolationKind, WorkspaceTransaction,
-};
 
 #[test]
 fn test_extended_invariants_sql_injection() {
@@ -182,8 +182,14 @@ fn test_rule_runner_bitset_and_latency() {
 
     assert!(report.passed);
     assert!(report.violations.is_empty());
-    println!("20-Pass Invariant Verification Latency: {:.2}µs", elapsed_us);
-    assert!(elapsed_us < 5000.0, "Verification should be sub-millisecond");
+    println!(
+        "20-Pass Invariant Verification Latency: {:.2}µs",
+        elapsed_us
+    );
+    assert!(
+        elapsed_us < 5000.0,
+        "Verification should be sub-millisecond"
+    );
 
     // Mask test: disable all rules
     let empty_report = RuleRunner::verify_with_mask("eval(x)", RuleMask(0));
@@ -220,7 +226,10 @@ pub fn logout() {
     assert_eq!(delta2.total_nodes, 2);
     assert_eq!(delta2.reused_nodes, 2);
     assert_eq!(delta2.updated_nodes, 0);
-    println!("Incremental Parser Cache Hit Latency: {:.2}µs", delta2.latency_us);
+    println!(
+        "Incremental Parser Cache Hit Latency: {:.2}µs",
+        delta2.latency_us
+    );
     assert!(delta2.latency_us < 50.0);
 
     // Minor edit to login function
@@ -238,7 +247,9 @@ pub fn logout() {
     assert_eq!(delta3.reused_nodes, 1);
     assert_eq!(delta3.updated_nodes, 1);
 
-    let cached = parser.get_cached_nodes(file).expect("should have cached nodes");
+    let cached = parser
+        .get_cached_nodes(file)
+        .expect("should have cached nodes");
     assert_eq!(cached.len(), 2);
 }
 
@@ -277,7 +288,10 @@ fn test_auto_remediation_jsx_and_null_deref() {
     let deep_prop = "const name = user.profile.details.firstName;";
     let (fixed_prop, prop_edits) = AutoFixer::fix_null_dereferences(deep_prop);
     assert_eq!(prop_edits.len(), 1);
-    assert_eq!(fixed_prop, "const name = user?.profile?.details?.firstName;");
+    assert_eq!(
+        fixed_prop,
+        "const name = user?.profile?.details?.firstName;"
+    );
 
     // 3. Full pipeline test
     let broken_snippet = r#"
@@ -305,8 +319,10 @@ fn test_acid_workspace_transaction_commit_and_rollback() {
 
     // 1. Successful Transaction Commit
     let mut tx1 = WorkspaceTransaction::begin();
-    tx1.stage_file(&file_a, valid_code_a, Language::Rust).unwrap();
-    tx1.stage_file(&file_b, valid_code_b, Language::Rust).unwrap();
+    tx1.stage_file(&file_a, valid_code_a, Language::Rust)
+        .unwrap();
+    tx1.stage_file(&file_b, valid_code_b, Language::Rust)
+        .unwrap();
 
     let report1 = tx1.commit();
     assert!(report1.passed_verification);
@@ -319,11 +335,16 @@ fn test_acid_workspace_transaction_commit_and_rollback() {
     let invalid_code_b = "pub fn bar() -> i32 { ((( unclosed";
 
     let mut tx2 = WorkspaceTransaction::begin();
-    tx2.stage_file(&file_a, valid_update_a, Language::Rust).unwrap();
-    tx2.stage_file(&file_b, invalid_code_b, Language::Rust).unwrap();
+    tx2.stage_file(&file_a, valid_update_a, Language::Rust)
+        .unwrap();
+    tx2.stage_file(&file_b, invalid_code_b, Language::Rust)
+        .unwrap();
 
     let report2 = tx2.commit();
-    assert!(!report2.passed_verification, "Transaction must reject invariant violation");
+    assert!(
+        !report2.passed_verification,
+        "Transaction must reject invariant violation"
+    );
     assert_eq!(report2.committed_files.len(), 0);
 
     // Crucial ACID guarantee: file_a MUST retain original valid_code_a on disk (no drift!)

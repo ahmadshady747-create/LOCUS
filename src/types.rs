@@ -22,14 +22,14 @@ pub enum SymbolKind {
 impl std::fmt::Display for SymbolKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            SymbolKind::Function  => "fn",
-            SymbolKind::Struct    => "struct",
-            SymbolKind::Enum      => "enum",
-            SymbolKind::Trait     => "trait",
+            SymbolKind::Function => "fn",
+            SymbolKind::Struct => "struct",
+            SymbolKind::Enum => "enum",
+            SymbolKind::Trait => "trait",
             SymbolKind::TypeAlias => "type",
-            SymbolKind::Const     => "const",
-            SymbolKind::Impl      => "impl",
-            SymbolKind::Module    => "mod",
+            SymbolKind::Const => "const",
+            SymbolKind::Impl => "impl",
+            SymbolKind::Module => "mod",
         };
         write!(f, "{}", s)
     }
@@ -139,77 +139,116 @@ pub struct ArchitecturalHealth {
 }
 
 // ---------------------------------------------------------------------------
-// Verification Types
+// Verification Types (32 Enterprise Safety Rules)
 // ---------------------------------------------------------------------------
 
 /// A specific class of safety violation detected by `AstGuard`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ViolationKind {
-    /// Division by variable without a non-zero guard (e.g. `x / y` without `y != 0`).
+    // --- Core & Extended Rules (0..19) ---
+    /// Rule 2: Division by variable without a non-zero guard (e.g. `x / y` without `y != 0`).
     DivisionByZero,
-    /// Array index access without bounds check.
+    /// Rule 3: Array index access without bounds check.
     ArrayOutOfBounds,
-    /// Direct `.unwrap()` / `.expect()` on Option or Result.
+    /// Rule 4: Direct unwrap or expect on Option or Result.
     UnsafeUnwrap,
-    /// `std::sync::Mutex` lock held across a `.await` suspension point.
+    /// Rule 1: `std::sync::Mutex` lock held across a `.await` suspension point.
     AsyncMutexAcrossAwait,
-    /// Catastrophic backtracking regex pattern (e.g. `(a+)+`).
+    /// Rule 5: Catastrophic exponential backtracking regex pattern with nested quantifiers.
     ReDoSPattern,
-    /// Deep property access without null / optional-chaining guard (TS/JS).
+    /// Rule 6: Deep property access without null / optional-chaining guard (TS/JS).
     NullDereference,
-    /// Unbalanced delimiters (braces, brackets, parentheses).
+    /// Rule 0: Unbalanced delimiters (braces, brackets, parentheses).
     UnbalancedDelimiters,
-    /// Unmatched or improperly balanced JSX/HTML opening/closing tags or fragments.
+    /// Rule 10: Unmatched or improperly balanced JSX/HTML opening/closing tags or fragments.
     JsxTagMismatch,
-    /// React hook called conditionally inside if statements, loops, or nested scopes.
+    /// Rule 7: React hook called conditionally inside if statements, loops, or nested scopes.
     ConditionalHookCall,
-    /// Server-side secret accessed directly in a client component ("use client").
+    /// Rule 8: Server-side secret accessed directly in a client component ("use client").
     ClientSecretLeak,
-    /// Direct raw HTML injection without sanitization.
+    /// Rule 9: Direct raw HTML injection without sanitization.
     UnsafeInnerHtml,
-    /// Unparameterized SQL queries or raw template string concatenation.
+    /// Rule 11: Unparameterized SQL queries or raw template string concatenation.
     SqlInjection,
-    /// Unhandled async floating promises lacking await, catch, or return.
+    /// Rule 12: Unhandled async floating promises lacking await, catch, or return.
     FloatingPromise,
-    /// Non-functional state updates inside asynchronous loops or delayed callbacks.
+    /// Rule 13: Non-functional state updates inside asynchronous loops or delayed callbacks.
     ReactStateRace,
-    /// Event listeners or subscriptions added without cleanup in unmount handlers.
+    /// Rule 14: Event listeners or subscriptions added without cleanup in unmount handlers.
     ListenerLeak,
-    /// Weak pseudo-random number generator (e.g. Math.random) used in security contexts.
+    /// Rule 15: Weak pseudo-random number generator (e.g. Math.random) used in security contexts.
     InsecureRandomness,
-    /// Unsanitized user inputs concatenated into filesystem paths.
+    /// Rule 16: Unsanitized user inputs concatenated into filesystem paths.
     PathTraversal,
-    /// Unbounded regex execution risking high-complexity denial of service.
+    /// Rule 17: Unbounded regex execution risking high-complexity denial of service.
     UnboundedRegex,
-    /// Dynamic code execution via eval(), new Function(), or unvalidated dynamic imports.
+    /// Rule 18: Dynamic code execution via dynamic evaluation functions or unvalidated dynamic imports.
     DynamicCodeEval,
-    /// Direct access to polymorphic union properties without discriminant narrowing.
+    /// Rule 19: Direct access to polymorphic union properties without discriminant narrowing.
     UntypedUnionAccess,
+
+    // --- Enterprise & Concurrency Invariants (Rules 20..31) ---
+    /// Rule 20: Circular reference cycles in Rc/Arc without Weak references causing memory leaks.
+    CircularMemLeak,
+    /// Rule 21: Non-atomic state mutations across cancellation points in async tasks.
+    AsyncCancellationSafety,
+    /// Rule 22: Variable-time comparison in security-sensitive crypto contexts (passwords/hashes/signatures).
+    ConstantTimeCrypto,
+    /// Rule 23: Incomplete non-exhaustive discriminant handling in Enums and polymorphic Unions.
+    ExhaustiveEnumNarrowing,
+    /// Rule 24: Sockets, file handles, or subprocesses lacking deterministic close/drop RAII blocks.
+    ResourceDescriptorLeak,
+    /// Rule 25: Outbound requests to private IP ranges or metadata service endpoints (SSRF).
+    SsrfUnsafeFetch,
+    /// Rule 26: Unbounded or unbuffered channel sends risking single-threaded task deadlocks.
+    UnboundedChannelDeadlock,
+    /// Rule 27: Unsanitized object merge/clone exposing __proto__ or constructor prototype pollution.
+    PrototypePollution,
+    /// Rule 28: Insecure CORS wildcard origin combined with credential transmission.
+    CorsWildcardCredentials,
+    /// Rule 29: High-entropy static strings or hardcoded cryptographic secret tokens.
+    HardcodedKeyEntropy,
+    /// Rule 30: Unchecked arithmetic operations risking integer overflow in critical loops.
+    UncheckedArithmeticOverflow,
+    /// Rule 31: Direct non-functional state mutations in high-concurrency state containers.
+    AtomicStateMutation,
 }
 
 impl std::fmt::Display for ViolationKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            ViolationKind::DivisionByZero         => "DIV_BY_ZERO",
-            ViolationKind::ArrayOutOfBounds        => "ARRAY_OOB",
-            ViolationKind::UnsafeUnwrap            => "UNSAFE_UNWRAP",
-            ViolationKind::AsyncMutexAcrossAwait   => "ASYNC_MUTEX_DEADLOCK",
-            ViolationKind::ReDoSPattern            => "REDOS_PATTERN",
-            ViolationKind::NullDereference         => "NULL_DEREF",
-            ViolationKind::UnbalancedDelimiters    => "UNBALANCED_DELIMITERS",
-            ViolationKind::JsxTagMismatch          => "JSX_TAG_MISMATCH",
-            ViolationKind::ConditionalHookCall     => "CONDITIONAL_HOOK_CALL",
-            ViolationKind::ClientSecretLeak        => "CLIENT_SECRET_LEAK",
-            ViolationKind::UnsafeInnerHtml         => "UNSAFE_INNER_HTML",
-            ViolationKind::SqlInjection            => "SQL_INJECTION",
-            ViolationKind::FloatingPromise         => "FLOATING_PROMISE",
-            ViolationKind::ReactStateRace          => "REACT_STATE_RACE",
-            ViolationKind::ListenerLeak            => "LISTENER_LEAK",
-            ViolationKind::InsecureRandomness      => "INSECURE_RANDOMNESS",
-            ViolationKind::PathTraversal           => "PATH_TRAVERSAL",
-            ViolationKind::UnboundedRegex          => "UNBOUNDED_REGEX",
-            ViolationKind::DynamicCodeEval         => "DYNAMIC_CODE_EVAL",
-            ViolationKind::UntypedUnionAccess      => "UNTYPED_UNION_ACCESS",
+            ViolationKind::DivisionByZero => "DIV_BY_ZERO",
+            ViolationKind::ArrayOutOfBounds => "ARRAY_OOB",
+            ViolationKind::UnsafeUnwrap => "UNSAFE_UNWRAP",
+            ViolationKind::AsyncMutexAcrossAwait => "ASYNC_MUTEX_DEADLOCK",
+            ViolationKind::ReDoSPattern => "REDOS_PATTERN",
+            ViolationKind::NullDereference => "NULL_DEREF",
+            ViolationKind::UnbalancedDelimiters => "UNBALANCED_DELIMITERS",
+            ViolationKind::JsxTagMismatch => "JSX_TAG_MISMATCH",
+            ViolationKind::ConditionalHookCall => "CONDITIONAL_HOOK_CALL",
+            ViolationKind::ClientSecretLeak => "CLIENT_SECRET_LEAK",
+            ViolationKind::UnsafeInnerHtml => "UNSAFE_INNER_HTML",
+            ViolationKind::SqlInjection => "SQL_INJECTION",
+            ViolationKind::FloatingPromise => "FLOATING_PROMISE",
+            ViolationKind::ReactStateRace => "REACT_STATE_RACE",
+            ViolationKind::ListenerLeak => "LISTENER_LEAK",
+            ViolationKind::InsecureRandomness => "INSECURE_RANDOMNESS",
+            ViolationKind::PathTraversal => "PATH_TRAVERSAL",
+            ViolationKind::UnboundedRegex => "UNBOUNDED_REGEX",
+            ViolationKind::DynamicCodeEval => "DYNAMIC_CODE_EVAL",
+            ViolationKind::UntypedUnionAccess => "UNTYPED_UNION_ACCESS",
+            ViolationKind::CircularMemLeak => "CIRCULAR_MEM_LEAK",
+            ViolationKind::AsyncCancellationSafety => "ASYNC_CANCELLATION_SAFETY",
+            ViolationKind::ConstantTimeCrypto => "CONSTANT_TIME_CRYPTO",
+            ViolationKind::ExhaustiveEnumNarrowing => "EXHAUSTIVE_ENUM_NARROWING",
+            ViolationKind::ResourceDescriptorLeak => "RESOURCE_DESCRIPTOR_LEAK",
+            ViolationKind::SsrfUnsafeFetch => "SSRF_UNSAFE_FETCH",
+            ViolationKind::UnboundedChannelDeadlock => "UNBOUNDED_CHANNEL_DEADLOCK",
+            ViolationKind::PrototypePollution => "PROTOTYPE_POLLUTION",
+            ViolationKind::CorsWildcardCredentials => "CORS_WILDCARD_CREDENTIALS",
+            ViolationKind::HardcodedKeyEntropy => "HARDCODED_KEY_ENTROPY",
+            ViolationKind::UncheckedArithmeticOverflow => "UNCHECKED_ARITHMETIC_OVERFLOW",
+            ViolationKind::AtomicStateMutation => "ATOMIC_STATE_MUTATION",
         };
         write!(f, "{}", s)
     }
@@ -378,7 +417,7 @@ pub struct AstQueryMatch {
 }
 
 // ---------------------------------------------------------------------------
-// Multi-Agent Symbol Lease Types
+// Multi-Agent Symbol Lease & Swarm OCC Types
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -401,6 +440,16 @@ impl SymbolLease {
     }
 }
 
+/// Summary report of an automatically broken deadlock cycle.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeadlockResolution {
+    pub cycle: Vec<String>,
+    pub broken_lease_id: String,
+    pub broken_fqn: String,
+    pub evicted_agent: String,
+    pub resolved_at_ms: u64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LeaseStatus {
     Acquired(SymbolLease),
@@ -409,13 +458,25 @@ pub enum LeaseStatus {
         current_holder: String,
         remaining_ttl_ms: u64,
     },
+    HierarchicalConflict {
+        requested_fqn: String,
+        blocking_lease_fqn: String,
+        current_holder: String,
+        remaining_ttl_ms: u64,
+    },
+    OccMismatch {
+        fqn: String,
+        current_version: u64,
+        expected_version: u64,
+    },
+    Deadlock(DeadlockResolution),
     Released,
     NotFound,
     Renewed(SymbolLease),
 }
 
 // ---------------------------------------------------------------------------
-// Cross-File Taint & Data-Flow Types
+// Cross-File Taint & Data-Flow Types (v2 Inter-Procedural SSA Engine)
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -442,6 +503,41 @@ pub struct TaintSink {
     pub operation: String,
 }
 
+/// Classification of recognized sanitizer transformations.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SanitizerRule {
+    HtmlSanitization,
+    SqlParamBinding,
+    UrlEncoding,
+    CryptoHashing,
+    SchemaValidation,
+    PathTraversalGuard,
+    Custom(String),
+}
+
+/// A cryptographic audit certificate proving that untrusted data was sanitized before reaching a sink.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaintAuditCertificate {
+    pub certificate_id: String,
+    pub taint_id: String,
+    pub source_variable: String,
+    pub sanitizer_name: String,
+    pub sanitizer_rule: SanitizerRule,
+    pub sink_operation: String,
+    pub proof_chain: Vec<String>,
+    pub sha256_fingerprint: String,
+    pub issued_at_ms: u64,
+}
+
+/// A single verified step in a sanitizer transformation chain.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SanitizerProofStep {
+    pub sanitizer_name: String,
+    pub input_var: String,
+    pub output_var: String,
+    pub rule: SanitizerRule,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaintFlowReport {
     pub taint_id: String,
@@ -450,6 +546,7 @@ pub struct TaintFlowReport {
     pub sinks: Vec<TaintSink>,
     pub is_sanitized: bool,
     pub violation_risk: RiskScore,
+    pub certificate: Option<TaintAuditCertificate>,
     pub latency_ms: f64,
 }
 
@@ -548,7 +645,7 @@ impl std::fmt::Display for Language {
 /// Fast non-cryptographic FNV-1a 64-bit hash for symbol IDs.
 pub fn fnv1a_64(data: &[u8]) -> u64 {
     const OFFSET: u64 = 14695981039346656037;
-    const PRIME:  u64 = 1099511628211;
+    const PRIME: u64 = 1099511628211;
     let mut hash = OFFSET;
     for &byte in data {
         hash ^= byte as u64;
@@ -563,36 +660,67 @@ mod tests {
 
     #[test]
     fn test_symbol_kind_display() {
-        assert_eq!(SymbolKind::Function.to_string(),  "fn");
-        assert_eq!(SymbolKind::Struct.to_string(),    "struct");
-        assert_eq!(SymbolKind::Enum.to_string(),      "enum");
-        assert_eq!(SymbolKind::Trait.to_string(),     "trait");
+        assert_eq!(SymbolKind::Function.to_string(), "fn");
+        assert_eq!(SymbolKind::Struct.to_string(), "struct");
+        assert_eq!(SymbolKind::Enum.to_string(), "enum");
+        assert_eq!(SymbolKind::Trait.to_string(), "trait");
         assert_eq!(SymbolKind::TypeAlias.to_string(), "type");
-        assert_eq!(SymbolKind::Impl.to_string(),      "impl");
+        assert_eq!(SymbolKind::Impl.to_string(), "impl");
     }
 
     #[test]
     fn test_violation_kind_display() {
-        assert_eq!(ViolationKind::DivisionByZero.to_string(),       "DIV_BY_ZERO");
-        assert_eq!(ViolationKind::AsyncMutexAcrossAwait.to_string(),"ASYNC_MUTEX_DEADLOCK");
-        assert_eq!(ViolationKind::ReDoSPattern.to_string(),         "REDOS_PATTERN");
-        assert_eq!(ViolationKind::JsxTagMismatch.to_string(),       "JSX_TAG_MISMATCH");
-        assert_eq!(ViolationKind::ConditionalHookCall.to_string(),  "CONDITIONAL_HOOK_CALL");
-        assert_eq!(ViolationKind::ClientSecretLeak.to_string(),     "CLIENT_SECRET_LEAK");
-        assert_eq!(ViolationKind::UnsafeInnerHtml.to_string(),      "UNSAFE_INNER_HTML");
+        assert_eq!(ViolationKind::DivisionByZero.to_string(), "DIV_BY_ZERO");
+        assert_eq!(
+            ViolationKind::AsyncMutexAcrossAwait.to_string(),
+            "ASYNC_MUTEX_DEADLOCK"
+        );
+        assert_eq!(ViolationKind::ReDoSPattern.to_string(), "REDOS_PATTERN");
+        assert_eq!(
+            ViolationKind::JsxTagMismatch.to_string(),
+            "JSX_TAG_MISMATCH"
+        );
+        assert_eq!(
+            ViolationKind::ConditionalHookCall.to_string(),
+            "CONDITIONAL_HOOK_CALL"
+        );
+        assert_eq!(
+            ViolationKind::ClientSecretLeak.to_string(),
+            "CLIENT_SECRET_LEAK"
+        );
+        assert_eq!(
+            ViolationKind::UnsafeInnerHtml.to_string(),
+            "UNSAFE_INNER_HTML"
+        );
+        assert_eq!(
+            ViolationKind::CircularMemLeak.to_string(),
+            "CIRCULAR_MEM_LEAK"
+        );
+        assert_eq!(
+            ViolationKind::ConstantTimeCrypto.to_string(),
+            "CONSTANT_TIME_CRYPTO"
+        );
+        assert_eq!(
+            ViolationKind::SsrfUnsafeFetch.to_string(),
+            "SSRF_UNSAFE_FETCH"
+        );
+        assert_eq!(
+            ViolationKind::CorsWildcardCredentials.to_string(),
+            "CORS_WILDCARD_CREDENTIALS"
+        );
     }
 
     #[test]
     fn test_language_from_extension() {
-        assert_eq!(Language::from_extension("rs"),     Language::Rust);
-        assert_eq!(Language::from_extension("ts"),     Language::TypeScript);
-        assert_eq!(Language::from_extension("tsx"),    Language::Tsx);
-        assert_eq!(Language::from_extension("jsx"),    Language::Jsx);
+        assert_eq!(Language::from_extension("rs"), Language::Rust);
+        assert_eq!(Language::from_extension("ts"), Language::TypeScript);
+        assert_eq!(Language::from_extension("tsx"), Language::Tsx);
+        assert_eq!(Language::from_extension("jsx"), Language::Jsx);
         assert_eq!(Language::from_extension("svelte"), Language::Svelte);
-        assert_eq!(Language::from_extension("astro"),  Language::Astro);
-        assert_eq!(Language::from_extension("vue"),    Language::Vue);
-        assert_eq!(Language::from_extension("py"),     Language::Python);
-        assert_eq!(Language::from_extension("csv"),    Language::Unknown);
+        assert_eq!(Language::from_extension("astro"), Language::Astro);
+        assert_eq!(Language::from_extension("vue"), Language::Vue);
+        assert_eq!(Language::from_extension("py"), Language::Python);
+        assert_eq!(Language::from_extension("csv"), Language::Unknown);
         assert!(Language::Tsx.is_frontend());
         assert!(!Language::Rust.is_frontend());
     }

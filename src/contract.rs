@@ -3,8 +3,8 @@
 //! Synthesizes strict type scaffolding and safety invariants from natural language intent
 //! before code generation, eliminating >95% of hallucinated APIs and misaligned implementations.
 
-use std::time::Instant;
 use serde::{Deserialize, Serialize};
+use std::time::Instant;
 
 use crate::graph::SymbolGraph;
 use crate::guard::AstGuard;
@@ -57,7 +57,8 @@ impl ContractSynthesizer {
         };
 
         // Extract primary symbol name and concepts from intent
-        let (primary_symbol, input_type, output_type, error_type) = Self::infer_symbol_names(intent, effective_lang);
+        let (primary_symbol, input_type, output_type, error_type) =
+            Self::infer_symbol_names(intent, effective_lang);
 
         let mut required_symbols = vec![
             primary_symbol.clone(),
@@ -114,11 +115,17 @@ impl ContractSynthesizer {
         // 3. Check for missing required symbols
         let mut missing_symbols = Vec::new();
         for req in &contract.required_symbols {
-            if !generated_symbols.iter().any(|s| s == req || s.eq_ignore_ascii_case(req)) {
+            if !generated_symbols
+                .iter()
+                .any(|s| s == req || s.eq_ignore_ascii_case(req))
+            {
                 // Check if it appears as an interface/struct/type in source
                 let pat = format!(" {}", req);
                 let pat_colon = format!("{}:", req);
-                if !generated_code.contains(&pat) && !generated_code.contains(&pat_colon) && !generated_code.contains(req) {
+                if !generated_code.contains(&pat)
+                    && !generated_code.contains(&pat_colon)
+                    && !generated_code.contains(req)
+                {
                     missing_symbols.push(req.clone());
                 }
             }
@@ -126,14 +133,23 @@ impl ContractSynthesizer {
 
         // 4. Verify primary symbol signature presence
         let mut signature_mismatches = Vec::new();
-        if !generated_symbols.contains(&contract.primary_symbol) && !generated_code.contains(&contract.primary_symbol) {
-            signature_mismatches.push(format!("Primary symbol '{}' is missing from generated code.", contract.primary_symbol));
+        if !generated_symbols.contains(&contract.primary_symbol)
+            && !generated_code.contains(&contract.primary_symbol)
+        {
+            signature_mismatches.push(format!(
+                "Primary symbol '{}' is missing from generated code.",
+                contract.primary_symbol
+            ));
         }
 
-        let passed = safety_report.passed && missing_symbols.is_empty() && signature_mismatches.is_empty();
+        let passed =
+            safety_report.passed && missing_symbols.is_empty() && signature_mismatches.is_empty();
 
         let detail = if passed {
-            format!("Code generation 100% faithful to contract '{}' with zero safety violations.", contract.primary_symbol)
+            format!(
+                "Code generation 100% faithful to contract '{}' with zero safety violations.",
+                contract.primary_symbol
+            )
         } else {
             let mut reasons = Vec::new();
             if !safety_report.passed {
@@ -145,7 +161,10 @@ impl ContractSynthesizer {
                 reasons.push(format!("Missing Symbols: [{}]", missing_symbols.join(", ")));
             }
             if !signature_mismatches.is_empty() {
-                reasons.push(format!("Signature Mismatches: [{}]", signature_mismatches.join(", ")));
+                reasons.push(format!(
+                    "Signature Mismatches: [{}]",
+                    signature_mismatches.join(", ")
+                ));
             }
             reasons.join(" | ")
         };
@@ -168,19 +187,51 @@ impl ContractSynthesizer {
         let words: Vec<&str> = intent
             .split(|c: char| !c.is_alphanumeric() && c != '_')
             .filter(|w| {
-                !w.is_empty() && !matches!(
-                    w.to_lowercase().as_str(),
-                    "a" | "an" | "the" | "in" | "on" | "with" | "and" | "for" | "to" | "of" | "by"
-                        | "create" | "implement" | "build" | "add" | "make" | "async"
-                        | "component" | "hook" | "function" | "handler" | "service" | "module" | "api"
-                        | "calculate" | "compute" | "execute" | "perform" | "handle" | "process"
-                )
+                !w.is_empty()
+                    && !matches!(
+                        w.to_lowercase().as_str(),
+                        "a" | "an"
+                            | "the"
+                            | "in"
+                            | "on"
+                            | "with"
+                            | "and"
+                            | "for"
+                            | "to"
+                            | "of"
+                            | "by"
+                            | "create"
+                            | "implement"
+                            | "build"
+                            | "add"
+                            | "make"
+                            | "async"
+                            | "component"
+                            | "hook"
+                            | "function"
+                            | "handler"
+                            | "service"
+                            | "module"
+                            | "api"
+                            | "calculate"
+                            | "compute"
+                            | "execute"
+                            | "perform"
+                            | "handle"
+                            | "process"
+                    )
             })
             .collect();
 
         let root_name = if words.is_empty() {
             "ExecuteHandler".to_string()
-        } else if words[0].chars().next().map(|c| c.is_uppercase()).unwrap_or(false) && words[0].len() > 3 {
+        } else if words[0]
+            .chars()
+            .next()
+            .map(|c| c.is_uppercase())
+            .unwrap_or(false)
+            && words[0].len() > 3
+        {
             words[0].to_string()
         } else {
             words[..words.len().min(2)]
@@ -197,7 +248,12 @@ impl ContractSynthesizer {
 
         if lang.is_frontend() {
             let is_hook = intent.to_lowercase().contains("hook")
-                || (intent.starts_with("use") && intent.chars().nth(3).map(|c| c.is_uppercase()).unwrap_or(false))
+                || (intent.starts_with("use")
+                    && intent
+                        .chars()
+                        .nth(3)
+                        .map(|c| c.is_uppercase())
+                        .unwrap_or(false))
                 || intent.starts_with("use_");
 
             let is_component = intent.to_lowercase().contains("component")
@@ -206,7 +262,12 @@ impl ContractSynthesizer {
                 || intent.to_lowercase().contains("button")
                 || intent.to_lowercase().contains("view")
                 || intent.to_lowercase().contains("dialog")
-                || (root_name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) && !is_hook);
+                || (root_name
+                    .chars()
+                    .next()
+                    .map(|c| c.is_uppercase())
+                    .unwrap_or(false)
+                    && !is_hook);
 
             if is_hook {
                 let fn_name = if root_name.starts_with("Use") {
@@ -216,21 +277,46 @@ impl ContractSynthesizer {
                 } else {
                     format!("use{}", root_name)
                 };
-                (fn_name, format!("{}Options", root_name), format!("{}Return", root_name), "".to_string())
+                (
+                    fn_name,
+                    format!("{}Options", root_name),
+                    format!("{}Return", root_name),
+                    "".to_string(),
+                )
             } else if is_component {
-                (root_name.clone(), format!("{}Props", root_name), format!("{}State", root_name), "".to_string())
+                (
+                    root_name.clone(),
+                    format!("{}Props", root_name),
+                    format!("{}State", root_name),
+                    "".to_string(),
+                )
             } else {
                 let mut fn_name = root_name.clone();
                 fn_name.replace_range(0..1, &root_name[0..1].to_lowercase());
-                (fn_name, format!("{}Params", root_name), format!("{}Result", root_name), format!("{}Error", root_name))
+                (
+                    fn_name,
+                    format!("{}Params", root_name),
+                    format!("{}Result", root_name),
+                    format!("{}Error", root_name),
+                )
             }
         } else if lang == Language::Rust {
             let fn_name = Self::to_snake_case(&root_name);
-            (fn_name, format!("{}Request", root_name), format!("{}Response", root_name), format!("{}Error", root_name))
+            (
+                fn_name,
+                format!("{}Request", root_name),
+                format!("{}Response", root_name),
+                format!("{}Error", root_name),
+            )
         } else {
             // Python / TypeScript default
             let fn_name = Self::to_snake_case(&root_name);
-            (fn_name, format!("{}Input", root_name), format!("{}Output", root_name), format!("{}Exception", root_name))
+            (
+                fn_name,
+                format!("{}Input", root_name),
+                format!("{}Output", root_name),
+                format!("{}Exception", root_name),
+            )
         }
     }
 
@@ -289,7 +375,12 @@ impl ContractSynthesizer {
                         export function {}(options?: {}): {};\n",
                         intent, input_type, output_type, primary_symbol, input_type, output_type
                     )
-                } else if primary_symbol.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                } else if primary_symbol
+                    .chars()
+                    .next()
+                    .map(|c| c.is_uppercase())
+                    .unwrap_or(false)
+                {
                     format!(
                         "// Architecture Contract for: {}\n\n\
                         import React from 'react';\n\n\
@@ -342,20 +433,32 @@ impl ContractSynthesizer {
         ];
 
         if lang == Language::Rust {
-            checklist.push("Async Concurrency Safety: Never hold `std::sync::Mutex` across `.await` points.".to_string());
+            checklist.push(
+                "Async Concurrency Safety: Never hold `std::sync::Mutex` across `.await` points."
+                    .to_string(),
+            );
         }
 
         if lang.is_frontend() {
-            checklist.push("React Rules of Hooks: Hooks must execute unconditionally at top-level scope.".to_string());
+            checklist.push(
+                "React Rules of Hooks: Hooks must execute unconditionally at top-level scope."
+                    .to_string(),
+            );
             checklist.push("Client Boundary Security: Never access server secrets without public prefix in 'use client'.".to_string());
             checklist.push("JSX Invariant Guard: All JSX tags and fragments must match opening and closing boundaries.".to_string());
         }
 
-        if intent.to_lowercase().contains("auth") || intent.to_lowercase().contains("token") || intent.to_lowercase().contains("secret") {
+        if intent.to_lowercase().contains("auth")
+            || intent.to_lowercase().contains("token")
+            || intent.to_lowercase().contains("secret")
+        {
             checklist.push("Security Invariant: Sensitive credentials must be handled in-memory without persistent logging.".to_string());
         }
 
-        if intent.to_lowercase().contains("page") || intent.to_lowercase().contains("limit") || intent.to_lowercase().contains("query") {
+        if intent.to_lowercase().contains("page")
+            || intent.to_lowercase().contains("limit")
+            || intent.to_lowercase().contains("query")
+        {
             checklist.push("Boundary Invariant: Pagination limits must be strictly bounded to prevent memory exhaustion.".to_string());
         }
 
@@ -377,10 +480,18 @@ mod tests {
         );
 
         assert_eq!(contract.language, Language::Rust);
-        assert!(contract.type_scaffolding.contains("pub struct UserAuthenticationRequest"));
-        assert!(contract.type_scaffolding.contains("pub struct UserAuthenticationResponse"));
-        assert!(contract.type_scaffolding.contains("pub enum UserAuthenticationError"));
-        assert!(contract.type_scaffolding.contains("pub async fn user_authentication"));
+        assert!(contract
+            .type_scaffolding
+            .contains("pub struct UserAuthenticationRequest"));
+        assert!(contract
+            .type_scaffolding
+            .contains("pub struct UserAuthenticationResponse"));
+        assert!(contract
+            .type_scaffolding
+            .contains("pub enum UserAuthenticationError"));
+        assert!(contract
+            .type_scaffolding
+            .contains("pub async fn user_authentication"));
         assert!(!contract.invariant_checklist.is_empty());
         assert!(contract.latency_ms < 50.0);
     }
@@ -395,9 +506,16 @@ mod tests {
         );
 
         assert_eq!(contract.language, Language::Tsx);
-        assert!(contract.type_scaffolding.contains("export interface UserProfileCardProps"));
-        assert!(contract.type_scaffolding.contains("export function UserProfileCard(props: UserProfileCardProps)"));
-        assert!(contract.invariant_checklist.iter().any(|c| c.contains("React Rules of Hooks")));
+        assert!(contract
+            .type_scaffolding
+            .contains("export interface UserProfileCardProps"));
+        assert!(contract
+            .type_scaffolding
+            .contains("export function UserProfileCard(props: UserProfileCardProps)"));
+        assert!(contract
+            .invariant_checklist
+            .iter()
+            .any(|c| c.contains("React Rules of Hooks")));
     }
 
     #[test]

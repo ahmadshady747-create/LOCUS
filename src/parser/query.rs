@@ -5,23 +5,25 @@
 
 #![forbid(unsafe_code)]
 
-use std::sync::LazyLock;
-use regex::Regex;
 use crate::types::{AstQueryKind, AstQueryMatch};
+use regex::Regex;
+use std::sync::LazyLock;
 
-static RE_CALL_EXPR: LazyLock<Regex> = LazyLock::new(|| {
-    match Regex::new(r#"([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(([^)]*)\)"#) {
-        Ok(re) => re,
-        Err(_) => Regex::new(r"\w+\(\)").expect("static regex"),
-    }
-});
+static RE_CALL_EXPR: LazyLock<Regex> =
+    LazyLock::new(
+        || match Regex::new(r#"([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(([^)]*)\)"#) {
+            Ok(re) => re,
+            Err(_) => Regex::new(r"\w+\(\)").expect("static regex"),
+        },
+    );
 
-static RE_JSX_TAG: LazyLock<Regex> = LazyLock::new(|| {
-    match Regex::new(r#"<([a-zA-Z][a-zA-Z0-9.-]*)(?:\s+[^>]*)?(?:/?>|>)"#) {
-        Ok(re) => re,
-        Err(_) => Regex::new(r"<[a-zA-Z]+").expect("static regex"),
-    }
-});
+static RE_JSX_TAG: LazyLock<Regex> =
+    LazyLock::new(
+        || match Regex::new(r#"<([a-zA-Z][a-zA-Z0-9.-]*)(?:\s+[^>]*)?(?:/?>|>)"#) {
+            Ok(re) => re,
+            Err(_) => Regex::new(r"<[a-zA-Z]+").expect("static regex"),
+        },
+    );
 
 static RE_MEMBER_ACCESS: LazyLock<Regex> = LazyLock::new(|| {
     match Regex::new(r#"([a-zA-Z_$][a-zA-Z0-9_$]*)\.([a-zA-Z_$][a-zA-Z0-9_$]*)"#) {
@@ -48,7 +50,10 @@ impl AstQueryEngine {
             for cap in RE_CALL_EXPR.captures_iter(source) {
                 if let Some(fn_match) = cap.get(1) {
                     let fn_name = fn_match.as_str();
-                    if target_fn.is_none() || target_fn.as_deref() == Some(fn_name) || target_fn.as_deref() == Some("*") {
+                    if target_fn.is_none()
+                        || target_fn.as_deref() == Some(fn_name)
+                        || target_fn.as_deref() == Some("*")
+                    {
                         if let Some(full_match) = cap.get(0) {
                             matches.push(AstQueryMatch {
                                 pattern: pattern.to_string(),
@@ -67,7 +72,10 @@ impl AstQueryEngine {
             for cap in RE_JSX_TAG.captures_iter(source) {
                 if let Some(tag_match) = cap.get(1) {
                     let tag_name = tag_match.as_str();
-                    if target_tag.is_none() || target_tag.as_deref() == Some(tag_name) || target_tag.as_deref() == Some("*") {
+                    if target_tag.is_none()
+                        || target_tag.as_deref() == Some(tag_name)
+                        || target_tag.as_deref() == Some("*")
+                    {
                         if let Some(full_match) = cap.get(0) {
                             matches.push(AstQueryMatch {
                                 pattern: pattern.to_string(),
@@ -88,8 +96,12 @@ impl AstQueryEngine {
                 let obj = cap.get(1).map(|m| m.as_str()).unwrap_or("");
                 let prop = cap.get(2).map(|m| m.as_str()).unwrap_or("");
 
-                let obj_ok = target_obj.is_none() || target_obj.as_deref() == Some(obj) || target_obj.as_deref() == Some("*");
-                let prop_ok = target_prop.is_none() || target_prop.as_deref() == Some(prop) || target_prop.as_deref() == Some("*");
+                let obj_ok = target_obj.is_none()
+                    || target_obj.as_deref() == Some(obj)
+                    || target_obj.as_deref() == Some("*");
+                let prop_ok = target_prop.is_none()
+                    || target_prop.as_deref() == Some(prop)
+                    || target_prop.as_deref() == Some("*");
 
                 if obj_ok && prop_ok {
                     if let Some(full_match) = cap.get(0) {
@@ -113,7 +125,8 @@ impl AstQueryEngine {
         let needle = format!("{}:", field);
         if let Some(pos) = pattern.find(&needle) {
             let rest = &pattern[pos + needle.len()..];
-            let clean = rest.trim_start()
+            let clean = rest
+                .trim_start()
                 .trim_matches(|c| c == '"' || c == '\'' || c == ')' || c == ' ')
                 .split_whitespace()
                 .next()

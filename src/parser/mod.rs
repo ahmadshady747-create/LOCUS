@@ -3,7 +3,7 @@
 #![forbid(unsafe_code)]
 
 pub mod incremental;
-pub mod query;
 pub mod index;
+pub mod query;
 
 pub use index::*;

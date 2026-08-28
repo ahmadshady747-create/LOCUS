@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "prepare_context",
+    "arguments": {
+      "target_file": "src/guard.rs",
+      "symbol": "AstGuard",
+      "budget": 500
+    }
+  }
+}

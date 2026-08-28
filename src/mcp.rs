@@ -2,12 +2,12 @@
 
 pub mod tools_v15_a;
 
+use serde::Deserialize;
+use serde_json::{json, Value};
 use std::fs;
 use std::io::{BufRead, Write};
 use std::path::Path;
 use std::time::Instant;
-use serde::Deserialize;
-use serde_json::{json, Value};
 
 use crate::contract::ContractSynthesizer;
 use crate::diff::AstDiffEngine;
@@ -62,7 +62,7 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                     },
                     "serverInfo": {
                         "name": "locus-engine",
-                        "version": "1.0.0"
+                        "version": "1.6.0"
                     }
                 }
             });
@@ -556,6 +556,147 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                             },
                             "required": ["query"]
                         }
+                    },
+                    {
+                        "name": "query_cst",
+                        "description": "Parses raw source code into a Lossless Concrete Syntax Tree (CST) with Green/Red nodes, trivia (comments, whitespace), and absolute byte offsets.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "string",
+                                    "description": "Source code snippet to parse into CST"
+                                },
+                                "language": {
+                                    "type": "string",
+                                    "enum": ["rust", "typescript", "javascript", "tsx", "jsx", "python"],
+                                    "description": "Optional programming language (default: rust)"
+                                },
+                                "offset": {
+                                    "type": "integer",
+                                    "description": "Optional byte offset to query the exact token or syntax node at"
+                                }
+                            },
+                            "required": ["code"]
+                        }
+                    },
+                    {
+                        "name": "audit_taint_path",
+                        "description": "Traces inter-procedural SSA data-flow taint propagation across call graph G=(V, E) and returns verified sanitizer proof chains with cryptographic TaintAuditCertificate.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "file_path": {
+                                    "type": "string",
+                                    "description": "Target source file path"
+                                },
+                                "code": {
+                                    "type": "string",
+                                    "description": "Optional raw source code content"
+                                },
+                                "symbol": {
+                                    "type": "string",
+                                    "description": "Optional target symbol name (default: '*')"
+                                }
+                            },
+                            "required": ["file_path"]
+                        }
+                    },
+                    {
+                        "name": "acquire_subtree_lease",
+                        "description": "Acquires an exclusive hierarchical wildcard lease (e.g. `src/auth/*` or `crate::billing::*`) with TTL across multi-agent swarms, enforcing bidirectional subtree conflict guards.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "pattern": {
+                                    "type": "string",
+                                    "description": "Wildcard pattern or module path (e.g. `src/auth/*`, `crate::billing::*`)"
+                                },
+                                "agent_id": {
+                                    "type": "string",
+                                    "description": "Unique agent identifier"
+                                },
+                                "ttl_ms": {
+                                    "type": "integer",
+                                    "description": "Lease duration in milliseconds (default: 60000)"
+                                }
+                            },
+                            "required": ["pattern", "agent_id"]
+                        }
+                    },
+                    {
+                        "name": "verify_occ_token",
+                        "description": "Deterministically checks or commits monotonic Optimistic Concurrency Control (OCC) version tokens across multi-agent swarms.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "fqn": {
+                                    "type": "string",
+                                    "description": "Target symbol or module FQN"
+                                },
+                                "expected_version": {
+                                    "type": "integer",
+                                    "description": "Expected monotonic OCC version"
+                                },
+                                "commit": {
+                                    "type": "boolean",
+                                    "description": "If true, advances the OCC version counter on match (default: false)"
+                                }
+                            },
+                            "required": ["fqn", "expected_version"]
+                        }
+                    },
+                    {
+                        "name": "morph_ast",
+                        "description": "Executes deterministic AST transformations, refactorings, and rule remediations (converting unsafe unwraps to ?, hoisting conditional hooks, balancing JSX tags, repairing deep property null accesses) with full post-verification proof.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "string",
+                                    "description": "Source code to transform"
+                                },
+                                "language": {
+                                    "type": "string",
+                                    "description": "Optional programming language"
+                                }
+                            },
+                            "required": ["code"]
+                        }
+                    },
+                    {
+                        "name": "simd_vector_search",
+                        "description": "Executes batch hardware-accelerated (AVX2 256-bit / ARM NEON 128-bit) quantized 8-bit dot-product vector search with zero heap allocations, achieving sub-20µs latency.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "query_text": {
+                                    "type": "string",
+                                    "description": "Query text to embed and search"
+                                },
+                                "query_vector": {
+                                    "type": "array",
+                                    "items": {"type": "integer"},
+                                    "description": "Optional raw 64-dim i8 quantized query vector"
+                                },
+                                "corpus": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "integer"},
+                                            "text": {"type": "string"}
+                                        },
+                                        "required": ["id"]
+                                    },
+                                    "description": "Optional list of corpus items to dynamically index and search"
+                                },
+                                "top_k": {
+                                    "type": "integer",
+                                    "description": "Number of nearest neighbors to return (default: 5)"
+                                }
+                            }
+                        }
                     }
                 ]
             });
@@ -623,7 +764,8 @@ fn execute_tool(name: &str, args: &Value) -> Value {
             };
 
             let report = AstGuard::verify(&code);
-            let report_json = serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".to_string());
+            let report_json =
+                serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".to_string());
             json!({
                 "content": [
                     {
@@ -645,7 +787,10 @@ fn execute_tool(name: &str, args: &Value) -> Value {
                 }
             };
 
-            let lang_str = args.get("language").and_then(|s| s.as_str()).unwrap_or("rust");
+            let lang_str = args
+                .get("language")
+                .and_then(|s| s.as_str())
+                .unwrap_or("rust");
             let lang = Language::from_extension(lang_str);
             let skeleton = AstDiffEngine::skeletonize(code, lang);
 
@@ -688,7 +833,10 @@ fn execute_tool(name: &str, args: &Value) -> Value {
                 }
             };
 
-            let lang_str = args.get("language").and_then(|s| s.as_str()).unwrap_or("rust");
+            let lang_str = args
+                .get("language")
+                .and_then(|s| s.as_str())
+                .unwrap_or("rust");
             let lang = Language::from_extension(lang_str);
 
             match AstDiffEngine::patch(source, symbol, new_code, lang) {
@@ -760,7 +908,10 @@ fn execute_tool(name: &str, args: &Value) -> Value {
             };
             let target_path = args.get("target_path").and_then(|s| s.as_str());
             let context = args.get("context").and_then(|s| s.as_str());
-            let lang_str = args.get("language").and_then(|s| s.as_str()).unwrap_or("rust");
+            let lang_str = args
+                .get("language")
+                .and_then(|s| s.as_str())
+                .unwrap_or("rust");
             let lang = Language::from_extension(lang_str);
 
             let contract = ContractSynthesizer::synthesize(intent, target_path, context, lang);
@@ -785,7 +936,10 @@ fn execute_tool(name: &str, args: &Value) -> Value {
                 }
             };
             let depth = args.get("depth").and_then(|d| d.as_u64()).unwrap_or(2) as usize;
-            let lang_str = args.get("language").and_then(|s| s.as_str()).unwrap_or("rust");
+            let lang_str = args
+                .get("language")
+                .and_then(|s| s.as_str())
+                .unwrap_or("rust");
             let lang = Language::from_extension(lang_str);
 
             if let Some(code) = args.get("code").and_then(|s| s.as_str()) {
@@ -821,7 +975,10 @@ fn execute_tool(name: &str, args: &Value) -> Value {
                             });
                         }
                     };
-                    let ext = path_obj.extension().and_then(|e| e.to_str()).unwrap_or(lang_str);
+                    let ext = path_obj
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .unwrap_or(lang_str);
                     let file_lang = Language::from_extension(ext);
                     let slice = ContextSlicer::slice_from_source(&code, symbol, depth, file_lang);
                     json!({
@@ -853,16 +1010,37 @@ fn execute_tool(name: &str, args: &Value) -> Value {
             };
 
             let contract = if let Some(c_val) = args.get("contract") {
-                if let Ok(c) = serde_json::from_value::<crate::contract::IntentContract>(c_val.clone()) {
+                if let Ok(c) =
+                    serde_json::from_value::<crate::contract::IntentContract>(c_val.clone())
+                {
                     c
                 } else {
-                    let intent_str = c_val.get("intent").and_then(|s| s.as_str()).unwrap_or("general implementation");
-                    let lang_str = args.get("language").and_then(|s| s.as_str()).unwrap_or("rust");
-                    ContractSynthesizer::synthesize(intent_str, None, None, Language::from_extension(lang_str))
+                    let intent_str = c_val
+                        .get("intent")
+                        .and_then(|s| s.as_str())
+                        .unwrap_or("general implementation");
+                    let lang_str = args
+                        .get("language")
+                        .and_then(|s| s.as_str())
+                        .unwrap_or("rust");
+                    ContractSynthesizer::synthesize(
+                        intent_str,
+                        None,
+                        None,
+                        Language::from_extension(lang_str),
+                    )
                 }
             } else if let Some(intent) = args.get("intent").and_then(|s| s.as_str()) {
-                let lang_str = args.get("language").and_then(|s| s.as_str()).unwrap_or("rust");
-                ContractSynthesizer::synthesize(intent, None, None, Language::from_extension(lang_str))
+                let lang_str = args
+                    .get("language")
+                    .and_then(|s| s.as_str())
+                    .unwrap_or("rust");
+                ContractSynthesizer::synthesize(
+                    intent,
+                    None,
+                    None,
+                    Language::from_extension(lang_str),
+                )
             } else {
                 ContractSynthesizer::synthesize("verified component", None, None, Language::Rust)
             };
@@ -889,7 +1067,10 @@ fn execute_tool(name: &str, args: &Value) -> Value {
                 }
             };
             let from_file = args.get("from_file").and_then(|s| s.as_str());
-            let target_path = args.get("target_path").and_then(|s| s.as_str()).unwrap_or(".");
+            let target_path = args
+                .get("target_path")
+                .and_then(|s| s.as_str())
+                .unwrap_or(".");
 
             let graph = SymbolGraph::index_directory(target_path);
             let resolved = graph.resolve_symbol(symbol, from_file);
@@ -941,7 +1122,10 @@ fn execute_tool(name: &str, args: &Value) -> Value {
                     });
                 }
             };
-            let target_path = args.get("target_path").and_then(|s| s.as_str()).unwrap_or(".");
+            let target_path = args
+                .get("target_path")
+                .and_then(|s| s.as_str())
+                .unwrap_or(".");
 
             let graph = SymbolGraph::index_directory(target_path);
             let refs = graph.find_references(symbol);
@@ -990,7 +1174,11 @@ fn execute_tool(name: &str, args: &Value) -> Value {
 
             let (sliced_context, blast_radius, resolved_symbol) = if let Some(sym) = symbol_opt {
                 let parent_dir = file_path.parent().unwrap_or(Path::new("."));
-                let search_root = if parent_dir.as_os_str().is_empty() { Path::new(".") } else { parent_dir };
+                let search_root = if parent_dir.as_os_str().is_empty() {
+                    Path::new(".")
+                } else {
+                    parent_dir
+                };
                 let graph = SymbolGraph::index_directory(search_root);
 
                 let slice = ContextSlicer::slice_from_source(&content, sym, depth, lang);
@@ -1057,7 +1245,10 @@ fn execute_tool(name: &str, args: &Value) -> Value {
                 }
             };
 
-            let dry_run = args.get("dry_run").and_then(|b| b.as_bool()).unwrap_or(false);
+            let dry_run = args
+                .get("dry_run")
+                .and_then(|b| b.as_bool())
+                .unwrap_or(false);
 
             // Step 1: Pre-patch in-memory invariant check on new_code
             let pre_check = AstGuard::verify(new_code);
@@ -1089,12 +1280,20 @@ fn execute_tool(name: &str, args: &Value) -> Value {
                 }
             };
 
-            let ext = Path::new(file_path_str).extension().and_then(|e| e.to_str()).unwrap_or("");
+            let ext = Path::new(file_path_str)
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("");
             let lang_str = args.get("language").and_then(|s| s.as_str()).unwrap_or(ext);
             let lang = Language::from_extension(lang_str);
 
             // Step 3: In-memory surgical patch
-            let patched_content = match AstDiffEngine::patch(&original_content, symbol, new_code, lang) {
+            let patched_content = match AstDiffEngine::patch(
+                &original_content,
+                symbol,
+                new_code,
+                lang,
+            ) {
                 Ok(p) => p,
                 Err(e) => {
                     let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
@@ -1166,74 +1365,68 @@ fn execute_tool(name: &str, args: &Value) -> Value {
             })
         }
 
-        "begin_tx" => {
-            match tools_v15_a::handle_begin_tx(args) {
-                Ok(val) => json!({
-                    "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}]
-                }),
-                Err(err) => json!({
-                    "content": [{"type": "text", "text": format!("Error: {}", err)}],
-                    "isError": true
-                }),
-            }
-        }
+        "begin_tx" => match tools_v15_a::handle_begin_tx(args) {
+            Ok(val) => json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}]
+            }),
+            Err(err) => json!({
+                "content": [{"type": "text", "text": format!("Error: {}", err)}],
+                "isError": true
+            }),
+        },
 
-        "stage_tx" => {
-            match tools_v15_a::handle_stage_tx(args) {
-                Ok(val) => json!({
-                    "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}]
-                }),
-                Err(err) => json!({
-                    "content": [{"type": "text", "text": format!("Error: {}", err)}],
-                    "isError": true
-                }),
-            }
-        }
+        "stage_tx" => match tools_v15_a::handle_stage_tx(args) {
+            Ok(val) => json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}]
+            }),
+            Err(err) => json!({
+                "content": [{"type": "text", "text": format!("Error: {}", err)}],
+                "isError": true
+            }),
+        },
 
-        "commit_tx" => {
-            match tools_v15_a::handle_commit_tx(args) {
-                Ok(val) => json!({
-                    "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}]
-                }),
-                Err(err) => json!({
-                    "content": [{"type": "text", "text": format!("Error: {}", err)}],
-                    "isError": true
-                }),
-            }
-        }
+        "commit_tx" => match tools_v15_a::handle_commit_tx(args) {
+            Ok(val) => json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}]
+            }),
+            Err(err) => json!({
+                "content": [{"type": "text", "text": format!("Error: {}", err)}],
+                "isError": true
+            }),
+        },
 
-        "rollback_tx" => {
-            match tools_v15_a::handle_rollback_tx(args) {
-                Ok(val) => json!({
-                    "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}]
-                }),
-                Err(err) => json!({
-                    "content": [{"type": "text", "text": format!("Error: {}", err)}],
-                    "isError": true
-                }),
-            }
-        }
+        "rollback_tx" => match tools_v15_a::handle_rollback_tx(args) {
+            Ok(val) => json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}]
+            }),
+            Err(err) => json!({
+                "content": [{"type": "text", "text": format!("Error: {}", err)}],
+                "isError": true
+            }),
+        },
 
-        "auto_remediate" => {
-            match tools_v15_a::handle_auto_remediate(args) {
-                Ok(val) => json!({
-                    "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}]
-                }),
-                Err(err) => json!({
-                    "content": [{"type": "text", "text": format!("Error: {}", err)}],
-                    "isError": true
-                }),
-            }
-        }
+        "auto_remediate" => match tools_v15_a::handle_auto_remediate(args) {
+            Ok(val) => json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}]
+            }),
+            Err(err) => json!({
+                "content": [{"type": "text", "text": format!("Error: {}", err)}],
+                "isError": true
+            }),
+        },
 
         "acquire_symbol_lease" => {
             let fqn = match args.get("fqn").and_then(|s| s.as_str()) {
                 Some(f) => f,
-                None => return json!({"content": [{"type": "text", "text": "Error: 'fqn' argument is required"}], "isError": true}),
+                None => {
+                    return json!({"content": [{"type": "text", "text": "Error: 'fqn' argument is required"}], "isError": true})
+                }
             };
             let agent_id = match args.get("agent_id").and_then(|s| s.as_str()) {
                 Some(a) => a,
-                None => return json!({"content": [{"type": "text", "text": "Error: 'agent_id' argument is required"}], "isError": true}),
+                None => {
+                    return json!({"content": [{"type": "text", "text": "Error: 'agent_id' argument is required"}], "isError": true})
+                }
             };
             let ttl_ms = args.get("ttl_ms").and_then(|v| v.as_u64()).unwrap_or(60000);
             let status = LEASE_REGISTRY.acquire(fqn, agent_id, ttl_ms);
@@ -1245,11 +1438,15 @@ fn execute_tool(name: &str, args: &Value) -> Value {
         "release_symbol_lease" => {
             let lease_id = match args.get("lease_id").and_then(|s| s.as_str()) {
                 Some(l) => l,
-                None => return json!({"content": [{"type": "text", "text": "Error: 'lease_id' argument is required"}], "isError": true}),
+                None => {
+                    return json!({"content": [{"type": "text", "text": "Error: 'lease_id' argument is required"}], "isError": true})
+                }
             };
             let agent_id = match args.get("agent_id").and_then(|s| s.as_str()) {
                 Some(a) => a,
-                None => return json!({"content": [{"type": "text", "text": "Error: 'agent_id' argument is required"}], "isError": true}),
+                None => {
+                    return json!({"content": [{"type": "text", "text": "Error: 'agent_id' argument is required"}], "isError": true})
+                }
             };
             let status = LEASE_REGISTRY.release(lease_id, agent_id);
             json!({
@@ -1260,13 +1457,20 @@ fn execute_tool(name: &str, args: &Value) -> Value {
         "renew_symbol_lease" => {
             let lease_id = match args.get("lease_id").and_then(|s| s.as_str()) {
                 Some(l) => l,
-                None => return json!({"content": [{"type": "text", "text": "Error: 'lease_id' argument is required"}], "isError": true}),
+                None => {
+                    return json!({"content": [{"type": "text", "text": "Error: 'lease_id' argument is required"}], "isError": true})
+                }
             };
             let agent_id = match args.get("agent_id").and_then(|s| s.as_str()) {
                 Some(a) => a,
-                None => return json!({"content": [{"type": "text", "text": "Error: 'agent_id' argument is required"}], "isError": true}),
+                None => {
+                    return json!({"content": [{"type": "text", "text": "Error: 'agent_id' argument is required"}], "isError": true})
+                }
             };
-            let extension_ms = args.get("extension_ms").and_then(|v| v.as_u64()).unwrap_or(60000);
+            let extension_ms = args
+                .get("extension_ms")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(60000);
             let status = LEASE_REGISTRY.renew(lease_id, agent_id, extension_ms);
             json!({
                 "content": [{"type": "text", "text": serde_json::to_string_pretty(&status).unwrap_or_default()}]
@@ -1276,15 +1480,21 @@ fn execute_tool(name: &str, args: &Value) -> Value {
         "trace_taint_flow" => {
             let file_path = match args.get("file_path").and_then(|s| s.as_str()) {
                 Some(f) => f,
-                None => return json!({"content": [{"type": "text", "text": "Error: 'file_path' argument is required"}], "isError": true}),
+                None => {
+                    return json!({"content": [{"type": "text", "text": "Error: 'file_path' argument is required"}], "isError": true})
+                }
             };
             let symbol = args.get("symbol").and_then(|s| s.as_str()).unwrap_or("*");
             let content = match fs::read_to_string(file_path) {
                 Ok(c) => c,
-                Err(e) => return json!({"content": [{"type": "text", "text": format!("Error reading file '{}': {}", file_path, e)}], "isError": true}),
+                Err(e) => {
+                    return json!({"content": [{"type": "text", "text": format!("Error reading file '{}': {}", file_path, e)}], "isError": true})
+                }
             };
-            let reports = crate::taint::DataFlowTracker::analyze_source(file_path, symbol, &content);
-            let null_reports = crate::taint::NullPropagationTracker::scan_nullable_flows(file_path, &content);
+            let reports =
+                crate::taint::DataFlowTracker::analyze_source(file_path, symbol, &content);
+            let null_reports =
+                crate::taint::NullPropagationTracker::scan_nullable_flows(file_path, &content);
             let mut all_reports = reports;
             all_reports.extend(null_reports);
             json!({
@@ -1295,7 +1505,9 @@ fn execute_tool(name: &str, args: &Value) -> Value {
         "hybrid_search" => {
             let query = match args.get("query").and_then(|s| s.as_str()) {
                 Some(q) => q,
-                None => return json!({"content": [{"type": "text", "text": "Error: 'query' argument is required"}], "isError": true}),
+                None => {
+                    return json!({"content": [{"type": "text", "text": "Error: 'query' argument is required"}], "isError": true})
+                }
             };
             let path = args.get("path").and_then(|s| s.as_str()).unwrap_or(".");
             let top_k = args.get("top_k").and_then(|v| v.as_u64()).unwrap_or(5) as usize;
@@ -1304,6 +1516,203 @@ fn execute_tool(name: &str, args: &Value) -> Value {
             let matcher = crate::search::HybridMatcher::new();
             matcher.index_graph(&graph);
             let result = matcher.search(query, top_k);
+            json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&result).unwrap_or_default()}]
+            })
+        }
+
+        "query_cst" => {
+            let code = match args.get("code").and_then(|s| s.as_str()) {
+                Some(c) => c,
+                None => {
+                    return json!({"content": [{"type": "text", "text": "Error: 'code' argument is required"}], "isError": true})
+                }
+            };
+            let lang_str = args
+                .get("language")
+                .and_then(|s| s.as_str())
+                .unwrap_or("rust");
+            let lang = Language::from_extension(lang_str);
+            let red_tree = crate::cst::parse_to_cst(code);
+            let offset_opt = args
+                .get("offset")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as u32);
+
+            let token_info = if let Some(off) = offset_opt {
+                red_tree.token_at_offset(off).map(|t| {
+                    json!({
+                        "kind": format!("{:?}", t.kind()),
+                        "text": t.text(),
+                        "start": t.text_range().start(),
+                        "end": t.text_range().end(),
+                        "is_trivia": t.kind().is_trivia(),
+                    })
+                })
+            } else {
+                None
+            };
+
+            let reconstructed = red_tree.text();
+            let result = json!({
+                "status": "success",
+                "language": lang.to_string(),
+                "total_text_length": reconstructed.len(),
+                "trivia_roundtrip_intact": reconstructed == code,
+                "token_at_offset": token_info,
+                "root_kind": format!("{:?}", red_tree.kind()),
+                "root_text": reconstructed
+            });
+
+            json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&result).unwrap_or_default()}]
+            })
+        }
+
+        "audit_taint_path" => {
+            let file_path = match args.get("file_path").and_then(|s| s.as_str()) {
+                Some(f) => f,
+                None => {
+                    return json!({"content": [{"type": "text", "text": "Error: 'file_path' argument is required"}], "isError": true})
+                }
+            };
+            let symbol = args.get("symbol").and_then(|s| s.as_str()).unwrap_or("*");
+            let content = if let Some(c) = args.get("code").and_then(|s| s.as_str()) {
+                c.to_string()
+            } else {
+                match fs::read_to_string(file_path) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        return json!({"content": [{"type": "text", "text": format!("Error reading file '{}': {}", file_path, e)}], "isError": true})
+                    }
+                }
+            };
+
+            let reports =
+                crate::taint::DataFlowTracker::analyze_source(file_path, symbol, &content);
+            let null_reports =
+                crate::taint::NullPropagationTracker::scan_nullable_flows(file_path, &content);
+            let mut all = reports;
+            all.extend(null_reports);
+
+            json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&all).unwrap_or_default()}]
+            })
+        }
+
+        "acquire_subtree_lease" => {
+            let pattern = match args.get("pattern").and_then(|s| s.as_str()) {
+                Some(p) => p,
+                None => {
+                    return json!({"content": [{"type": "text", "text": "Error: 'pattern' argument is required"}], "isError": true})
+                }
+            };
+            let agent_id = match args.get("agent_id").and_then(|s| s.as_str()) {
+                Some(a) => a,
+                None => {
+                    return json!({"content": [{"type": "text", "text": "Error: 'agent_id' argument is required"}], "isError": true})
+                }
+            };
+            let ttl_ms = args.get("ttl_ms").and_then(|v| v.as_u64()).unwrap_or(60000);
+
+            let status = LEASE_REGISTRY.acquire(pattern, agent_id, ttl_ms);
+            json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&status).unwrap_or_default()}]
+            })
+        }
+
+        "verify_occ_token" => {
+            let fqn = match args.get("fqn").and_then(|s| s.as_str()) {
+                Some(f) => f,
+                None => {
+                    return json!({"content": [{"type": "text", "text": "Error: 'fqn' argument is required"}], "isError": true})
+                }
+            };
+            let expected_version = match args.get("expected_version").and_then(|v| v.as_u64()) {
+                Some(v) => v,
+                None => {
+                    return json!({"content": [{"type": "text", "text": "Error: 'expected_version' argument is required"}], "isError": true})
+                }
+            };
+            let commit = args.get("commit").and_then(|v| v.as_bool()).unwrap_or(false);
+
+            let res = if commit {
+                LEASE_REGISTRY.commit_occ(fqn, expected_version)
+            } else {
+                LEASE_REGISTRY.verify_occ_token(fqn, expected_version)
+            };
+
+            match res {
+                Ok(v) => json!({
+                    "content": [{"type": "text", "text": json!({"status": "success", "fqn": fqn, "version": v, "committed": commit}).to_string()}]
+                }),
+                Err(err_status) => json!({
+                    "content": [{"type": "text", "text": serde_json::to_string_pretty(&err_status).unwrap_or_default()}],
+                    "isError": true
+                }),
+            }
+        }
+
+        "morph_ast" => {
+            let code = match args.get("code").and_then(|s| s.as_str()) {
+                Some(c) => c,
+                None => {
+                    return json!({"content": [{"type": "text", "text": "Error: 'code' argument is required"}], "isError": true})
+                }
+            };
+
+            let result = crate::remediate::AutoFixer::remediate(code);
+            json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&result).unwrap_or_default()}]
+            })
+        }
+
+        "simd_vector_search" => {
+            let top_k = args.get("top_k").and_then(|v| v.as_u64()).unwrap_or(5) as usize;
+            let query_vec: Vec<i8> = if let Some(arr) =
+                args.get("query_vector").and_then(|v| v.as_array())
+            {
+                arr.iter()
+                    .filter_map(|v| v.as_i64().map(|n| n as i8))
+                    .collect()
+            } else if let Some(txt) = args.get("query_text").and_then(|s| s.as_str()) {
+                crate::search::HybridMatcher::embed_text(txt)
+            } else {
+                return json!({"content": [{"type": "text", "text": "Error: Either 'query_text' or 'query_vector' is required"}], "isError": true});
+            };
+
+            let mut index = crate::search::HnswIndex::default();
+
+            if let Some(corpus_arr) = args.get("corpus").and_then(|v| v.as_array()) {
+                for item in corpus_arr {
+                    if let Some(id) = item.get("id").and_then(|v| v.as_u64()) {
+                        let vec = if let Some(txt) = item.get("text").and_then(|s| s.as_str()) {
+                            crate::search::HybridMatcher::embed_text(txt)
+                        } else {
+                            vec![0i8; crate::search::DEFAULT_DIM]
+                        };
+                        index.insert(id, vec);
+                    }
+                }
+            } else {
+                let sample = crate::search::HybridMatcher::embed_text("sample default vector");
+                index.insert(1, sample);
+            }
+
+            let mut scratch = crate::search::HnswQueryScratch::with_capacity(top_k * 4);
+            let mut hits = Vec::with_capacity(top_k);
+            let start = Instant::now();
+            index.search_with_scratch(&query_vec, top_k, &mut scratch, &mut hits);
+            let latency_us = start.elapsed().as_secs_f64() * 1_000_000.0;
+
+            let result = json!({
+                "status": "success",
+                "top_k": top_k,
+                "hits": hits.into_iter().map(|(id, score)| json!({"id": id, "score": score})).collect::<Vec<_>>(),
+                "latency_us": latency_us,
+                "simd_accelerated": true
+            });
+
             json!({
                 "content": [{"type": "text", "text": serde_json::to_string_pretty(&result).unwrap_or_default()}]
             })
@@ -1355,7 +1764,7 @@ mod tests {
         let parsed: Value = serde_json::from_str(&resp).unwrap();
         assert_eq!(parsed["id"], 1);
         assert_eq!(parsed["result"]["serverInfo"]["name"], "locus-engine");
-        assert_eq!(parsed["result"]["serverInfo"]["version"], "1.0.0");
+        assert_eq!(parsed["result"]["serverInfo"]["version"], "1.6.0");
     }
 
     #[test]
@@ -1373,7 +1782,7 @@ mod tests {
         let resp = handle_json_rpc_message(list_req).expect("Response expected");
         let parsed: Value = serde_json::from_str(&resp).unwrap();
         let tools = parsed["result"]["tools"].as_array().expect("Tools array");
-        assert_eq!(tools.len(), 22);
+        assert_eq!(tools.len(), 28);
 
         let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
         assert!(names.contains(&"check_safety"));
@@ -1398,6 +1807,12 @@ mod tests {
         assert!(names.contains(&"renew_symbol_lease"));
         assert!(names.contains(&"trace_taint_flow"));
         assert!(names.contains(&"hybrid_search"));
+        assert!(names.contains(&"query_cst"));
+        assert!(names.contains(&"audit_taint_path"));
+        assert!(names.contains(&"acquire_subtree_lease"));
+        assert!(names.contains(&"verify_occ_token"));
+        assert!(names.contains(&"morph_ast"));
+        assert!(names.contains(&"simd_vector_search"));
     }
 
     #[test]

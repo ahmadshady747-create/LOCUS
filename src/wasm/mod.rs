@@ -2,7 +2,7 @@
 
 #![forbid(unsafe_code)]
 
-pub mod locus_wasm_bridge;
 pub mod index;
+pub mod locus_wasm_bridge;
 
 pub use index::*;

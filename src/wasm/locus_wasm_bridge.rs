@@ -2,7 +2,6 @@
 
 #![forbid(unsafe_code)]
 
-use serde_json::json;
 use crate::diff::AstDiffEngine;
 use crate::guard::AstGuard;
 use crate::mcp::handle_json_rpc_message;
@@ -10,6 +9,7 @@ use crate::parser::AstQueryEngine;
 use crate::remediate::AutoFixer;
 use crate::slice::ContextSlicer;
 use crate::types::Language;
+use serde_json::json;
 
 /// WASM-compatible bridge interface for in-browser AST verification.
 pub struct LocusWasmBridge;
@@ -52,7 +52,8 @@ impl LocusWasmBridge {
             json!({
                 "jsonrpc": "2.0",
                 "result": {}
-            }).to_string()
+            })
+            .to_string()
         })
     }
 }

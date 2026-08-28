@@ -2,6 +2,7 @@
 
 pub mod cache;
 pub mod contract;
+pub mod cst;
 pub mod diff;
 pub mod graph;
 pub mod guard;
@@ -19,6 +20,10 @@ pub mod wasm;
 // Primary public exports
 pub use cache::{AstContextCache, CachedEntry};
 pub use contract::{ContractSynthesizer, ContractVerificationReport, IntentContract};
+pub use cst::{
+    parse_to_cst, parse_to_green, to_lossless_text, GreenElement, GreenNode, GreenNodeBuilder,
+    GreenToken, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize,
+};
 pub use diff::{AstDiffEngine, DiffError};
 pub use graph::SymbolGraph;
 pub use guard::{AstGuard, InvariantsExtended, RuleMask, RuleRunner};
@@ -32,5 +37,3 @@ pub use taint::{DataFlowTracker, NullPropagationTracker};
 pub use tx::{ShadowBuffer, WorkspaceTransaction};
 pub use types::*;
 pub use wasm::LocusWasmBridge;
-
-

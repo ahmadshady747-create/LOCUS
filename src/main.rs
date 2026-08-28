@@ -15,7 +15,7 @@ use locus_engine::{
 
 fn print_usage() {
     eprintln!(
-        r#"locus-engine CLI v1.5.0
+        r#"locus-engine CLI v1.6.0
 
 USAGE:
     locus check <file_path>
@@ -58,6 +58,10 @@ fn main() {
     }
 
     match args[1].as_str() {
+        "--version" | "-v" | "-V" | "version" => {
+            println!("locus-engine v1.6.0");
+        }
+
         "mcp" => {
             if let Err(e) = run_stdio_server() {
                 eprintln!("MCP Server error: {}", e);
@@ -67,7 +71,9 @@ fn main() {
 
         "contract" => {
             if args.len() < 3 {
-                eprintln!("Usage: locus contract <intent> [--lang <lang>] [--target <target_path>]");
+                eprintln!(
+                    "Usage: locus contract <intent> [--lang <lang>] [--target <target_path>]"
+                );
                 process::exit(1);
             }
             let intent = &args[2];
@@ -116,7 +122,10 @@ fn main() {
                     process::exit(1);
                 }
             };
-            let ext = Path::new(file_path).extension().and_then(|e| e.to_str()).unwrap_or("");
+            let ext = Path::new(file_path)
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("");
             let lang = Language::from_extension(ext);
             let slice = ContextSlicer::slice_from_source(&content, symbol, depth, lang);
             println!("{}", slice.sliced_code);
@@ -160,9 +169,15 @@ fn main() {
 
             let report = AstGuard::verify(&content);
             if report.passed {
-                println!("PASS: '{}' verified safe across 20 invariant rules ({:.2}ms)", file_path, report.latency_ms);
+                println!(
+                    "PASS: '{}' verified safe across 20 invariant rules ({:.2}ms)",
+                    file_path, report.latency_ms
+                );
             } else {
-                eprintln!("FAIL: '{}' violated safety invariants ({:.2}ms):", file_path, report.latency_ms);
+                eprintln!(
+                    "FAIL: '{}' violated safety invariants ({:.2}ms):",
+                    file_path, report.latency_ms
+                );
                 for v in report.violations {
                     eprintln!("  - {}", v);
                 }
@@ -190,7 +205,12 @@ fn main() {
                     eprintln!("Error writing fixed code to '{}': {}", file_path, e);
                     process::exit(1);
                 }
-                println!("Fixed '{}' ({} edits applied, verified safe in {:.2}ms)", file_path, res.edits_applied.len(), res.latency_ms);
+                println!(
+                    "Fixed '{}' ({} edits applied, verified safe in {:.2}ms)",
+                    file_path,
+                    res.edits_applied.len(),
+                    res.latency_ms
+                );
             } else {
                 println!("No automatic fixes applied (or manual intervention required).");
             }
@@ -203,8 +223,17 @@ fn main() {
             let elapsed = start.elapsed();
             let cycles = graph.detect_import_cycles();
 
-            println!("Indexed directory: '{}' ({:.2}ms)", path, elapsed.as_secs_f64() * 1000.0);
-            println!("Total files: {}, Symbols: {}, Dependency edges: {}", graph.file_to_symbols.len(), graph.nodes.len(), graph.edges.len());
+            println!(
+                "Indexed directory: '{}' ({:.2}ms)",
+                path,
+                elapsed.as_secs_f64() * 1000.0
+            );
+            println!(
+                "Total files: {}, Symbols: {}, Dependency edges: {}",
+                graph.file_to_symbols.len(),
+                graph.nodes.len(),
+                graph.edges.len()
+            );
             if !cycles.is_empty() {
                 println!("WARNING: Circular dependencies detected:");
                 for cycle in cycles {
@@ -219,7 +248,11 @@ fn main() {
                 process::exit(1);
             }
             let symbol = &args[2];
-            let path = if args.len() > 3 && !args[3].starts_with("--") { &args[3] } else { "." };
+            let path = if args.len() > 3 && !args[3].starts_with("--") {
+                &args[3]
+            } else {
+                "."
+            };
             let mut depth = 2usize;
             if let Some(pos) = args.iter().position(|a| a == "--depth") {
                 if pos + 1 < args.len() {
@@ -229,9 +262,20 @@ fn main() {
 
             let graph = SymbolGraph::index_directory(path);
             let report = graph.calculate_blast_radius(symbol, None, depth);
-            println!("Blast Radius for symbol '{}' [Risk: {}]:", symbol, report.risk_score);
-            println!("  Direct dependents ({}): {:?}", report.direct_dependents.len(), report.direct_dependents);
-            println!("  Affected files ({}): {:?}", report.affected_files.len(), report.affected_files);
+            println!(
+                "Blast Radius for symbol '{}' [Risk: {}]:",
+                symbol, report.risk_score
+            );
+            println!(
+                "  Direct dependents ({}): {:?}",
+                report.direct_dependents.len(),
+                report.direct_dependents
+            );
+            println!(
+                "  Affected files ({}): {:?}",
+                report.affected_files.len(),
+                report.affected_files
+            );
         }
 
         "refs" => {
@@ -263,7 +307,13 @@ fn main() {
 
             println!("Search results for '{}' ({:.2}ms):", query, res.latency_ms);
             for (idx, hit) in res.hits.iter().enumerate() {
-                println!("  {}. {} (score: {:.2}) - {}", idx + 1, hit.symbol_name, hit.score, hit.file_path);
+                println!(
+                    "  {}. {} (score: {:.2}) - {}",
+                    idx + 1,
+                    hit.symbol_name,
+                    hit.score,
+                    hit.file_path
+                );
                 println!("     {}", hit.signature);
             }
         }
@@ -291,10 +341,18 @@ fn main() {
                 println!("  No unvalidated taint flows or unhandled null dereferences detected.");
             } else {
                 for r in flow_reports {
-                    println!("  [TAINT] {} -> {} sinks (Risk: {})", r.source.variable, r.sinks.len(), r.violation_risk);
+                    println!(
+                        "  [TAINT] {} -> {} sinks (Risk: {})",
+                        r.source.variable,
+                        r.sinks.len(),
+                        r.violation_risk
+                    );
                 }
                 for r in null_reports {
-                    println!("  [NULL] Unhandled return from '{}' (Risk: {})", r.source.symbol, r.violation_risk);
+                    println!(
+                        "  [NULL] Unhandled return from '{}' (Risk: {})",
+                        r.source.symbol, r.violation_risk
+                    );
                 }
             }
         }
@@ -309,7 +367,11 @@ fn main() {
                 "acquire" if args.len() >= 5 => {
                     let fqn = &args[3];
                     let agent = &args[4];
-                    let ttl = if args.len() > 5 { args[5].parse().unwrap_or(60000) } else { 60000 };
+                    let ttl = if args.len() > 5 {
+                        args[5].parse().unwrap_or(60000)
+                    } else {
+                        60000
+                    };
                     let status = reg.acquire(fqn, agent, ttl);
                     println!("{:?}", status);
                 }
@@ -323,7 +385,10 @@ fn main() {
                     let active = reg.list_active_leases();
                     println!("Active leases: {}", active.len());
                     for l in active {
-                        println!("  - {} (held by '{}', expires in {}ms)", l.fqn, l.holder_agent_id, l.ttl_ms);
+                        println!(
+                            "  - {} (held by '{}', expires in {}ms)",
+                            l.fqn, l.holder_agent_id, l.ttl_ms
+                        );
                     }
                 }
                 _ => {
@@ -335,7 +400,9 @@ fn main() {
 
         "patch" => {
             if args.len() < 3 {
-                eprintln!("Usage: locus patch <file_path> --symbol <symbol_name> --with <new_code>");
+                eprintln!(
+                    "Usage: locus patch <file_path> --symbol <symbol_name> --with <new_code>"
+                );
                 process::exit(1);
             }
             let file_path = &args[2];
@@ -385,7 +452,10 @@ fn main() {
                         eprintln!("Error writing '{}': {}", file_path, e);
                         process::exit(1);
                     }
-                    println!("Successfully patched symbol '{}' in '{}'", symbol, file_path);
+                    println!(
+                        "Successfully patched symbol '{}' in '{}'",
+                        symbol, file_path
+                    );
                 }
                 Err(e) => {
                     eprintln!("Patch failed: {}", e);

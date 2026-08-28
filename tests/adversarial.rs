@@ -13,7 +13,6 @@ fn test_adversarial_suite_all_caught() {
             "#,
             "React Rules of Hooks: Hook داخل تفرع شرطي",
         ),
-
         // 2. ReDoS خبيث بتكرار متداخل غير محدود
         (
             r#"
@@ -22,7 +21,6 @@ fn test_adversarial_suite_all_caught() {
             "#,
             "ReDoS: تراجع كارثي في التعبيرات النمطية",
         ),
-
         // 3. قفل Mutex متزامن محتجز عبر نقطة await داخل ذراع match
         (
             r#"
@@ -39,7 +37,6 @@ fn test_adversarial_suite_all_caught() {
             "#,
             "Async Mutex: احتجاز قفل متزامن عبر .await",
         ),
-
         // 4. تسريب مفتاح بيئة سري داخل مكون "use client"
         (
             r#"
@@ -51,7 +48,6 @@ fn test_adversarial_suite_all_caught() {
             "#,
             "Secret Leak: تسريب متغيرات بيئة الخادم في العميل",
         ),
-
         // 5. حقن HTML خطير عبر dangerouslySetInnerHTML بدون تطهير
         (
             r#"
@@ -61,7 +57,6 @@ fn test_adversarial_suite_all_caught() {
             "#,
             "XSS Injection: حقن HTML غير آمن ومباشر",
         ),
-
         // 6. قسمة حسابية غير محمية على متغير مدخل
         (
             r#"
@@ -71,7 +66,6 @@ fn test_adversarial_suite_all_caught() {
             "#,
             "Division by Zero: قسمة غير مؤمنة على صفر",
         ),
-
         // 7. وصول عميق لخاصية كائن (5 مستويات) دون استخدام ?.
         (
             r#"
@@ -81,7 +75,6 @@ fn test_adversarial_suite_all_caught() {
             "#,
             "Null Dereference: وصول عميق دون Optional Chaining",
         ),
-
         // 8. وسم JSX مكسور ومموّه بتعليق نصي خادع
         (
             r#"
@@ -95,7 +88,6 @@ fn test_adversarial_suite_all_caught() {
             "#,
             "JSX Tag Balance: وسم غير مغلق ومموّه بتعليق",
         ),
-
         // 9. استدعاء .unwrap() غير مؤمن في كود Rust
         (
             r#"
@@ -105,7 +97,6 @@ fn test_adversarial_suite_all_caught() {
             "#,
             "Unsafe Panic: استخدام .unwrap() بدون معالجة خطأ",
         ),
-
         // 10. عدم توازن الأقواس داخل قالب نصي متداخل
         (
             r#"
@@ -130,7 +121,11 @@ fn test_adversarial_suite_all_caught() {
             "✅ [تم الاصطياد بنجاح] اختبار #{}: {} (السبب: {})",
             i + 1,
             description,
-            report.violations.first().map(|v| v.as_str()).unwrap_or("Unknown")
+            report
+                .violations
+                .first()
+                .map(|v| v.as_str())
+                .unwrap_or("Unknown")
         );
     }
 }

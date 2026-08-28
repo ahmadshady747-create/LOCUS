@@ -5,9 +5,9 @@
 
 #![forbid(unsafe_code)]
 
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::time::Instant;
-use parking_lot::RwLock;
 
 use crate::types::{fnv1a_64, Language, SymbolKind};
 
@@ -144,9 +144,12 @@ impl IncrementalParser {
             let trimmed = line.trim();
             let line_len = line.len() + 1; // including newline
 
-            if trimmed.starts_with("pub fn ") || trimmed.starts_with("fn ")
-                || trimmed.starts_with("async fn ") || trimmed.starts_with("pub async fn ")
-                || trimmed.starts_with("function ") || trimmed.starts_with("export function ")
+            if trimmed.starts_with("pub fn ")
+                || trimmed.starts_with("fn ")
+                || trimmed.starts_with("async fn ")
+                || trimmed.starts_with("pub async fn ")
+                || trimmed.starts_with("function ")
+                || trimmed.starts_with("export function ")
                 || trimmed.starts_with("export const ") && trimmed.contains("=>")
                 || trimmed.starts_with("def ")
             {
@@ -165,9 +168,12 @@ impl IncrementalParser {
                         children: Vec::new(),
                     });
                 }
-            } else if trimmed.starts_with("pub struct ") || trimmed.starts_with("struct ")
-                || trimmed.starts_with("class ") || trimmed.starts_with("export class ")
-                || trimmed.starts_with("interface ") || trimmed.starts_with("export interface ")
+            } else if trimmed.starts_with("pub struct ")
+                || trimmed.starts_with("struct ")
+                || trimmed.starts_with("class ")
+                || trimmed.starts_with("export class ")
+                || trimmed.starts_with("interface ")
+                || trimmed.starts_with("export interface ")
             {
                 let name = Self::extract_identifier(trimmed);
                 if !name.is_empty() {
@@ -195,17 +201,32 @@ impl IncrementalParser {
     fn extract_identifier(line: &str) -> String {
         let tokens: Vec<&str> = line.split_whitespace().collect();
         for (i, &t) in tokens.iter().enumerate() {
-            if matches!(t, "fn" | "function" | "def" | "struct" | "class" | "interface") {
+            if matches!(
+                t,
+                "fn" | "function" | "def" | "struct" | "class" | "interface"
+            ) {
                 if let Some(&ident) = tokens.get(i + 1) {
-                    let clean = ident.split('(').next().unwrap_or(ident)
-                        .split('<').next().unwrap_or(ident)
-                        .split('{').next().unwrap_or(ident)
+                    let clean = ident
+                        .split('(')
+                        .next()
+                        .unwrap_or(ident)
+                        .split('<')
+                        .next()
+                        .unwrap_or(ident)
+                        .split('{')
+                        .next()
+                        .unwrap_or(ident)
                         .trim();
                     return clean.to_string();
                 }
             } else if t == "const" && i + 1 < tokens.len() {
-                let clean = tokens[i + 1].split(':').next().unwrap_or(tokens[i + 1])
-                    .split('=').next().unwrap_or(tokens[i + 1])
+                let clean = tokens[i + 1]
+                    .split(':')
+                    .next()
+                    .unwrap_or(tokens[i + 1])
+                    .split('=')
+                    .next()
+                    .unwrap_or(tokens[i + 1])
                     .trim();
                 return clean.to_string();
             }

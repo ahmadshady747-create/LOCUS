@@ -2,9 +2,9 @@
 
 #![forbid(unsafe_code)]
 
+use regex::Regex;
 use std::sync::LazyLock;
 use std::time::Instant;
-use regex::Regex;
 
 use crate::types::{RiskScore, TaintFlowReport, TaintKind, TaintSink, TaintSource};
 
@@ -39,11 +39,17 @@ impl NullPropagationTracker {
         for fn_name in nullable_funcs {
             let call_pattern = format!("{}(", fn_name);
             for (idx, line) in content.lines().enumerate() {
-                if line.contains(&call_pattern) && !line.contains("fn ") && !line.contains("function ") {
+                if line.contains(&call_pattern)
+                    && !line.contains("fn ")
+                    && !line.contains("function ")
+                {
                     // Check if line contains unhandled direct unwrap or direct property access
-                    let is_guarded = line.contains("if let") || line.contains("match ")
-                        || line.contains("?.") || line.contains(".unwrap_or")
-                        || line.contains("if (") || line.contains('?');
+                    let is_guarded = line.contains("if let")
+                        || line.contains("match ")
+                        || line.contains("?.")
+                        || line.contains(".unwrap_or")
+                        || line.contains("if (")
+                        || line.contains('?');
 
                     if !is_guarded {
                         let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
@@ -64,6 +70,7 @@ impl NullPropagationTracker {
                             }],
                             is_sanitized: false,
                             violation_risk: RiskScore::Medium,
+                            certificate: None,
                             latency_ms: elapsed_ms,
                         });
                     }

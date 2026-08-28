@@ -4,7 +4,7 @@
             "args": [
                 "mcp"
             ],
-            "command": "C:\\Users\\awsat\\AppData\\Local\\Programs\\locus\\locus.exe"
+            "command": "D:/LOCUS/target/release/locus.exe"
         },
         "gama": {
             "command": "node",

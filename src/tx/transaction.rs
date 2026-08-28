@@ -2,7 +2,8 @@
 //!
 //! Guarantees transactional consistency across multi-file code transformations:
 //! - All staged files are validated in-memory against AST invariants before any disk write.
-//! - Atomic commit writes all files only if 100% of invariants pass.
+//! - Inter-procedural SSA Taint & Data-Flow analysis rejects unsanitized security leaks.
+//! - Atomic commit writes all files only if 100% of invariants and taint checks pass.
 //! - On any violation, transaction automatically rolls back with zero disk mutation.
 
 #![forbid(unsafe_code)]
@@ -12,8 +13,9 @@ use std::path::Path;
 use std::time::Instant;
 
 use crate::guard::AstGuard;
+use crate::taint::DataFlowTracker;
 use crate::tx::shadow_buffer::ShadowBuffer;
-use crate::types::{Language, TransactionId, TransactionReport, TransactionStatus};
+use crate::types::{Language, RiskScore, TransactionId, TransactionReport, TransactionStatus};
 
 /// Coordinator for multi-file ACID workspace transactions.
 pub struct WorkspaceTransaction {
@@ -39,9 +41,20 @@ impl WorkspaceTransaction {
     }
 
     /// Stage a modified or new file within the transaction.
-    pub fn stage_file(&mut self, path: &str, content: &str, language: Language) -> Result<(), String> {
-        if matches!(self.status, TransactionStatus::Committed | TransactionStatus::RolledBack) {
-            return Err(format!("Cannot stage in a closed transaction (status: {:?})", self.status));
+    pub fn stage_file(
+        &mut self,
+        path: &str,
+        content: &str,
+        language: Language,
+    ) -> Result<(), String> {
+        if matches!(
+            self.status,
+            TransactionStatus::Committed | TransactionStatus::RolledBack
+        ) {
+            return Err(format!(
+                "Cannot stage in a closed transaction (status: {:?})",
+                self.status
+            ));
         }
 
         self.buffer.stage(path, content, language);
@@ -49,16 +62,40 @@ impl WorkspaceTransaction {
         Ok(())
     }
 
-    /// Dry-run verification pass across all currently staged files.
+    /// Dry-run verification pass across all currently staged files (AST Invariants + Inter-Procedural Taint).
     pub fn dry_run_verify(&self) -> (bool, Vec<String>) {
         let mut violations = Vec::new();
 
+        // 1. Single-file AST invariant verification
         for file in self.buffer.all_staged() {
+            if file.language == Language::Unknown {
+                continue;
+            }
             let report = AstGuard::verify(&file.staged_content);
             if !report.passed {
                 for v in report.violations {
                     violations.push(format!("[{}] {}", file.path, v));
                 }
+            }
+        }
+
+        // 2. Inter-procedural SSA Taint and Data-Flow verification across staged files
+        let staged_files = self.buffer.all_staged();
+        let taint_reports = DataFlowTracker::analyze_workspace_files(&staged_files);
+        for tr in taint_reports {
+            if !tr.is_sanitized && matches!(tr.violation_risk, RiskScore::High | RiskScore::Critical) {
+                let sink_op = tr
+                    .sinks
+                    .first()
+                    .map(|s| s.operation.as_str())
+                    .unwrap_or("sensitive sink");
+                let msg = format!(
+                    "TAINT_FLOW_VIOLATION: Unsanitized taint flow detected from '{}' to '{}' along path: {}",
+                    tr.source.variable,
+                    sink_op,
+                    tr.flow_path.join(" -> ")
+                );
+                violations.push(format!("[{}] {}", tr.source.file, msg));
             }
         }
 
@@ -85,11 +122,12 @@ impl WorkspaceTransaction {
             };
         }
 
-        // 1. In-Memory Validation Pass across ALL staged files
+        // 1. In-Memory Validation Pass across ALL staged files (Invariants + Taint)
         let (passed, violations) = self.dry_run_verify();
 
         if !passed {
-            self.status = TransactionStatus::Failed("Invariant violation in staged files".to_string());
+            self.status =
+                TransactionStatus::Failed("Invariant violation in staged files".to_string());
             let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
             return TransactionReport {
                 tx_id: self.id.clone(),
@@ -113,7 +151,10 @@ impl WorkspaceTransaction {
             if let Err(e) = fs::write(p, &file.staged_content) {
                 // If I/O fails during write, perform rollback of already written files
                 self.rollback_written(&committed_files);
-                self.status = TransactionStatus::Failed(format!("Disk write error on '{}': {}", file.path, e));
+                self.status = TransactionStatus::Failed(format!(
+                    "Disk write error on '{}': {}",
+                    file.path, e
+                ));
                 let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
                 return TransactionReport {
                     tx_id: self.id.clone(),

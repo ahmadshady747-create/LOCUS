@@ -1,0 +1,85 @@
+{
+  "metrics": {
+    "token_reduction_pct": 96.08719346049045,
+    "raw_total_tokens": 18350,
+    "locus_total_tokens": 718,
+    "raw_pass_rate": 33.33333333333333,
+    "locus_pass_rate": 100.0,
+    "avg_raw_latency_ms": 381.15000000000003,
+    "avg_locus_latency_ms": 64.25
+  },
+  "tasks": [
+    {
+      "id": "RS_01",
+      "lang": "rust",
+      "name": "Async Mutex Lock across Await Guard",
+      "invariant": "I1",
+      "raw_tokens": 3450,
+      "raw_latency_ms": 420.5,
+      "raw_passed": false,
+      "locus_tokens": 140,
+      "locus_latency_ms": 78.2,
+      "locus_passed": true
+    },
+    {
+      "id": "RS_02",
+      "lang": "rust",
+      "name": "Send/Sync Trait Bounds on Shared State",
+      "invariant": "I3",
+      "raw_tokens": 2980,
+      "raw_latency_ms": 385.0,
+      "raw_passed": true,
+      "locus_tokens": 125,
+      "locus_latency_ms": 65.4,
+      "locus_passed": true
+    },
+    {
+      "id": "TS_01",
+      "lang": "typescript",
+      "name": "Deep Property Access Null Dereference",
+      "invariant": "I4",
+      "raw_tokens": 2850,
+      "raw_latency_ms": 360.2,
+      "raw_passed": false,
+      "locus_tokens": 115,
+      "locus_latency_ms": 61.8,
+      "locus_passed": true
+    },
+    {
+      "id": "TS_02",
+      "lang": "typescript",
+      "name": "Discriminated Union Exhaustive Matching",
+      "invariant": "I4",
+      "raw_tokens": 3120,
+      "raw_latency_ms": 395.0,
+      "raw_passed": true,
+      "locus_tokens": 130,
+      "locus_latency_ms": 69.1,
+      "locus_passed": true
+    },
+    {
+      "id": "PY_01",
+      "lang": "python",
+      "name": "Division Safety Guard (ZeroDiv)",
+      "invariant": "I2",
+      "raw_tokens": 2650,
+      "raw_latency_ms": 310.4,
+      "raw_passed": false,
+      "locus_tokens": 98,
+      "locus_latency_ms": 52.3,
+      "locus_passed": true
+    },
+    {
+      "id": "PY_02",
+      "lang": "python",
+      "name": "ReDoS Catastrophic Backtracking Guard",
+      "invariant": "I5",
+      "raw_tokens": 3300,
+      "raw_latency_ms": 415.8,
+      "raw_passed": false,
+      "locus_tokens": 110,
+      "locus_latency_ms": 58.7,
+      "locus_passed": true
+    }
+  ]
+}

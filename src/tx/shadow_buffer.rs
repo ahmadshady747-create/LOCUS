@@ -2,8 +2,8 @@
 
 #![forbid(unsafe_code)]
 
-use std::collections::HashMap;
 use crate::types::{Language, TxStagedFile};
+use std::collections::HashMap;
 
 /// In-memory shadow buffer storing staged file modifications prior to disk commit.
 pub struct ShadowBuffer {
@@ -53,7 +53,10 @@ impl ShadowBuffer {
 
     /// Get all staged files.
     pub fn all_staged(&self) -> Vec<&TxStagedFile> {
-        self.journal.iter().filter_map(|p| self.staged.get(p)).collect()
+        self.journal
+            .iter()
+            .filter_map(|p| self.staged.get(p))
+            .collect()
     }
 
     /// Number of staged files.

@@ -1,16 +1,16 @@
 //! SymbolGraph — Cross-file semantic dependency resolver, cross-module reference linking,
 //! blast-radius impact analysis, and architectural health engine (Rust, TS/JS, Python).
 
+use regex::Regex;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::path::Path;
 use std::sync::LazyLock;
 use std::time::Instant;
-use regex::Regex;
 
 use crate::types::{
-    fnv1a_64, ArchitecturalHealth, BlastRadiusReport, EdgeKind, Language, ResolvedSymbol, RiskScore,
-    SymbolEdge, SymbolKind, SymbolNode, SymbolReference,
+    fnv1a_64, ArchitecturalHealth, BlastRadiusReport, EdgeKind, Language, ResolvedSymbol,
+    RiskScore, SymbolEdge, SymbolKind, SymbolNode, SymbolReference,
 };
 
 // ---------------------------------------------------------------------------
@@ -19,7 +19,8 @@ use crate::types::{
 
 // Rust patterns
 static RE_RS_FN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^\s*(?:pub(?:\([^)]+\))?\s+)?(?:async\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
+    Regex::new(r"(?m)^\s*(?:pub(?:\([^)]+\))?\s+)?(?:async\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)")
+        .unwrap()
 });
 static RE_RS_STRUCT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?m)^\s*(?:pub(?:\([^)]+\))?\s+)?struct\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
@@ -33,16 +34,17 @@ static RE_RS_TRAIT: LazyLock<Regex> = LazyLock::new(|| {
 static RE_RS_TYPE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?m)^\s*(?:pub(?:\([^)]+\))?\s+)?type\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
 });
-static RE_RS_USE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^\s*(?:pub\s+)?use\s+([^;]+);").unwrap()
-});
-static RE_RS_MOD: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^\s*(?:pub\s+)?mod\s+([a-zA-Z_][a-zA-Z0-9_]*);").unwrap()
-});
+static RE_RS_USE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?m)^\s*(?:pub\s+)?use\s+([^;]+);").unwrap());
+static RE_RS_MOD: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?m)^\s*(?:pub\s+)?mod\s+([a-zA-Z_][a-zA-Z0-9_]*);").unwrap());
 
 // TypeScript / JavaScript / Frontend patterns
 static RE_TS_FN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^\s*(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)").unwrap()
+    Regex::new(
+        r"(?m)^\s*(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)",
+    )
+    .unwrap()
 });
 static RE_TS_CONST_FN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?m)^\s*(?:export\s+)?(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*(?::\s*[^=]+)?\s*=\s*(?:async\s*)?(?:\([^)]*\)|[a-zA-Z_$][a-zA-Z0-9_$]*)\s*=>").unwrap()
@@ -56,22 +58,20 @@ static RE_TS_INTERFACE: LazyLock<Regex> = LazyLock::new(|| {
 static RE_TS_TYPE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?m)^\s*(?:export\s+)?type\s+([a-zA-Z_$][a-zA-Z0-9_$]*)").unwrap()
 });
-static RE_TS_IMPORT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?m)^\s*import\s+[^;\n]+?from\s*['"]([^'"]+)['"]"#).unwrap()
-});
+static RE_TS_IMPORT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"(?m)^\s*import\s+[^;\n]+?from\s*['"]([^'"]+)['"]"#).unwrap());
 static RE_TS_EXPORT_FROM: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"(?m)^\s*export\s+(?:\*|\{[^}]*\})\s*from\s*['"]([^'"]+)['"]"#).unwrap()
 });
 
 // Python patterns
-static RE_PY_DEF: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^\s*(?:async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
-});
-static RE_PY_CLASS: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^\s*class\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
-});
+static RE_PY_DEF: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?m)^\s*(?:async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap());
+static RE_PY_CLASS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?m)^\s*class\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap());
 static RE_PY_IMPORT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^\s*(?:from\s+([a-zA-Z0-9_.]+)\s+import\s+[^#\n]+|import\s+([a-zA-Z0-9_.]+))").unwrap()
+    Regex::new(r"(?m)^\s*(?:from\s+([a-zA-Z0-9_.]+)\s+import\s+[^#\n]+|import\s+([a-zA-Z0-9_.]+))")
+        .unwrap()
 });
 
 // ---------------------------------------------------------------------------
@@ -114,7 +114,12 @@ impl SymbolGraph {
             let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
             // Skip hidden, target, and node_modules
-            if file_name.starts_with('.') || file_name == "target" || file_name == "node_modules" || file_name == "dist" || file_name == "build" {
+            if file_name.starts_with('.')
+                || file_name == "target"
+                || file_name == "node_modules"
+                || file_name == "dist"
+                || file_name == "build"
+            {
                 continue;
             }
 
@@ -125,7 +130,11 @@ impl SymbolGraph {
                 let lang = Language::from_extension(ext);
                 if lang != Language::Unknown {
                     if let Ok(content) = fs::read_to_string(&path) {
-                        let rel_path = path.strip_prefix(root).unwrap_or(&path).to_string_lossy().replace('\\', "/");
+                        let rel_path = path
+                            .strip_prefix(root)
+                            .unwrap_or(&path)
+                            .to_string_lossy()
+                            .replace('\\', "/");
                         self.index_file_content(&rel_path, &content, lang);
                     }
                 }
@@ -136,7 +145,8 @@ impl SymbolGraph {
     /// Indexes symbols and module dependencies from a single file's content.
     pub fn index_file_content(&mut self, rel_path: &str, content: &str, lang: Language) {
         let normalized_path = rel_path.replace('\\', "/");
-        self.file_contents.insert(normalized_path.clone(), content.to_string());
+        self.file_contents
+            .insert(normalized_path.clone(), content.to_string());
 
         let extracted = match lang {
             Language::Rust => Self::extract_rust_symbols(&normalized_path, content),
@@ -151,7 +161,8 @@ impl SymbolGraph {
             self.nodes.insert(id, node);
             node_ids.push(id);
         }
-        self.file_to_symbols.insert(normalized_path.clone(), node_ids);
+        self.file_to_symbols
+            .insert(normalized_path.clone(), node_ids);
 
         // Extract module imports
         let imports = Self::extract_file_imports(&normalized_path, content, lang);
@@ -166,7 +177,11 @@ impl SymbolGraph {
             Language::Rust => {
                 for cap in RE_RS_USE.captures_iter(content) {
                     if let Some(m) = cap.get(1) {
-                        let path = m.as_str().trim().replace("crate::", "").replace("super::", "");
+                        let path = m
+                            .as_str()
+                            .trim()
+                            .replace("crate::", "")
+                            .replace("super::", "");
                         imports.push(path);
                     }
                 }
@@ -347,9 +362,12 @@ impl SymbolGraph {
             if (ch == '"' || ch == '\'' || ch == '`') && prev != '\\' {
                 if ch == '\'' && !in_str {
                     let rest = &slice[i + ch.len_utf8()..];
-                    let is_char_lit = (rest.chars().nth(1) == Some('\'') && !rest.starts_with('\\'))
+                    let is_char_lit = (rest.chars().nth(1) == Some('\'')
+                        && !rest.starts_with('\\'))
                         || (rest.starts_with('\\') && rest.chars().nth(2) == Some('\''));
-                    if !is_char_lit && (prev == '&' || prev == '<' || prev == ',' || prev == ' ' || prev == '(') {
+                    if !is_char_lit
+                        && (prev == '&' || prev == '<' || prev == ',' || prev == ' ' || prev == '(')
+                    {
                         // Rust lifetime like &'a or <'a> — ignore
                         prev = ch;
                         continue;
@@ -373,7 +391,9 @@ impl SymbolGraph {
             if ch == '(' {
                 paren_depth += 1;
             } else if ch == ')' {
-                if paren_depth > 0 { paren_depth -= 1; }
+                if paren_depth > 0 {
+                    paren_depth -= 1;
+                }
             } else if paren_depth == 0 && (ch == '{' || ch == ';') {
                 return i;
             }
@@ -399,9 +419,12 @@ impl SymbolGraph {
             if (ch == '"' || ch == '\'' || ch == '`') && prev != '\\' {
                 if ch == '\'' && !in_str {
                     let rest = &slice[i + ch.len_utf8()..];
-                    let is_char_lit = (rest.chars().nth(1) == Some('\'') && !rest.starts_with('\\'))
+                    let is_char_lit = (rest.chars().nth(1) == Some('\'')
+                        && !rest.starts_with('\\'))
                         || (rest.starts_with('\\') && rest.chars().nth(2) == Some('\''));
-                    if !is_char_lit && (prev == '&' || prev == '<' || prev == ',' || prev == ' ' || prev == '(') {
+                    if !is_char_lit
+                        && (prev == '&' || prev == '<' || prev == ',' || prev == ' ' || prev == '(')
+                    {
                         // Rust lifetime like &'a or <'a> — ignore
                         prev = ch;
                         continue;
@@ -504,7 +527,10 @@ impl SymbolGraph {
             let mut byte_offset = 0;
             for (line_idx, line) in content.lines().enumerate() {
                 let trimmed = line.trim();
-                if !trimmed.starts_with("//") && !trimmed.starts_with('#') && !trimmed.starts_with('*') {
+                if !trimmed.starts_with("//")
+                    && !trimmed.starts_with('#')
+                    && !trimmed.starts_with('*')
+                {
                     for sym in &symbol_names {
                         if line.contains(sym) {
                             let is_word = Self::is_word_match(line, sym);
@@ -587,7 +613,10 @@ impl SymbolGraph {
             let mut docs = Vec::new();
             for line in before.lines().rev() {
                 let trimmed = line.trim();
-                if trimmed.starts_with("///") || trimmed.starts_with("//!") || trimmed.starts_with('*') {
+                if trimmed.starts_with("///")
+                    || trimmed.starts_with("//!")
+                    || trimmed.starts_with('*')
+                {
                     docs.push(trimmed.to_string());
                 } else if trimmed.is_empty() {
                     continue;
@@ -625,17 +654,31 @@ impl SymbolGraph {
 
     /// Finds all references and call sites of a symbol across the entire indexed codebase.
     pub fn find_references(&self, symbol: &str) -> Vec<SymbolReference> {
-        self.symbol_references.get(symbol).cloned().unwrap_or_default()
+        self.symbol_references
+            .get(symbol)
+            .cloned()
+            .unwrap_or_default()
     }
 
     /// Computes direct and transitive blast radius impact when modifying a symbol.
-    pub fn calculate_blast_radius(&self, symbol: &str, file: Option<&str>, depth: usize) -> BlastRadiusReport {
+    pub fn calculate_blast_radius(
+        &self,
+        symbol: &str,
+        file: Option<&str>,
+        depth: usize,
+    ) -> BlastRadiusReport {
         let start = Instant::now();
 
         let resolved = self.resolve_symbol(symbol, file);
-        let origin_file = resolved.as_ref().map(|r| r.file.clone()).unwrap_or_else(|| file.unwrap_or("unknown").to_string());
+        let origin_file = resolved
+            .as_ref()
+            .map(|r| r.file.clone())
+            .unwrap_or_else(|| file.unwrap_or("unknown").to_string());
 
-        let target_node = self.nodes.values().find(|n| n.name == symbol && (file.is_none() || n.file == origin_file));
+        let target_node = self
+            .nodes
+            .values()
+            .find(|n| n.name == symbol && (file.is_none() || n.file == origin_file));
         let target_id = target_node.map(|n| n.id);
 
         let mut direct_dependents = Vec::new();
@@ -661,9 +704,11 @@ impl SymbolGraph {
                         if let Some(caller) = self.nodes.get(&edge.from_id) {
                             affected_files_set.insert(caller.file.clone());
                             if curr_depth == 0 {
-                                direct_dependents.push(format!("{} ({})", caller.name, caller.file));
+                                direct_dependents
+                                    .push(format!("{} ({})", caller.name, caller.file));
                             } else {
-                                transitive_dependents.push(format!("{} ({})", caller.name, caller.file));
+                                transitive_dependents
+                                    .push(format!("{} ({})", caller.name, caller.file));
                             }
                         }
                         queue.push_back((edge.from_id, curr_depth + 1));
@@ -685,7 +730,11 @@ impl SymbolGraph {
             }
         }
 
-        let reference_count = self.symbol_references.get(symbol).map(|v| v.len()).unwrap_or(0);
+        let reference_count = self
+            .symbol_references
+            .get(symbol)
+            .map(|v| v.len())
+            .unwrap_or(0);
         let mut affected_files: Vec<String> = affected_files_set.into_iter().collect();
         affected_files.sort();
 
@@ -754,7 +803,11 @@ impl SymbolGraph {
                 let dep_file = if imports.contains_key(dep) {
                     dep.clone()
                 } else {
-                    imports.keys().find(|k| k.ends_with(dep) || dep.ends_with(*k)).cloned().unwrap_or_default()
+                    imports
+                        .keys()
+                        .find(|k| k.ends_with(dep) || dep.ends_with(*k))
+                        .cloned()
+                        .unwrap_or_default()
                 };
 
                 if !dep_file.is_empty() {
@@ -790,7 +843,9 @@ impl SymbolGraph {
 
             if is_exported {
                 let refs = self.symbol_references.get(&node.name);
-                let external_refs = refs.map(|v| v.iter().filter(|r| r.file != node.file).count()).unwrap_or(0);
+                let external_refs = refs
+                    .map(|v| v.iter().filter(|r| r.file != node.file).count())
+                    .unwrap_or(0);
 
                 if external_refs == 0 && node.name != "main" && node.name != "default" {
                     orphans.push(format!("{} ({}:{})", node.name, node.file, node.signature));
@@ -889,12 +944,21 @@ pub async fn fetch_user(id: u64) -> Option<User> {
     #[test]
     fn test_detect_import_cycles() {
         let mut graph = SymbolGraph::new();
-        graph.file_imports.insert("src/a.ts".to_string(), vec!["src/b.ts".to_string()]);
-        graph.file_imports.insert("src/b.ts".to_string(), vec!["src/c.ts".to_string()]);
-        graph.file_imports.insert("src/c.ts".to_string(), vec!["src/a.ts".to_string()]);
+        graph
+            .file_imports
+            .insert("src/a.ts".to_string(), vec!["src/b.ts".to_string()]);
+        graph
+            .file_imports
+            .insert("src/b.ts".to_string(), vec!["src/c.ts".to_string()]);
+        graph
+            .file_imports
+            .insert("src/c.ts".to_string(), vec!["src/a.ts".to_string()]);
 
         let cycles = graph.detect_import_cycles();
-        assert!(!cycles.is_empty(), "Should detect circular import between a, b, c");
+        assert!(
+            !cycles.is_empty(),
+            "Should detect circular import between a, b, c"
+        );
         assert_eq!(cycles[0].len(), 4);
     }
 

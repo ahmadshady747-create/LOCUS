@@ -7,11 +7,11 @@
 //! 4. In-Memory Quantized HNSW Vector Index & Hybrid Matcher (<1ms latency)
 //! 5. WebAssembly (WASM) Bridge Interface
 
-use std::time::Instant;
 use locus_engine::{
-    DataFlowTracker, HnswIndex, HybridMatcher, LeaseRegistry, LeaseStatus,
-    LocusWasmBridge, NullPropagationTracker, SymbolGraph, Language,
+    DataFlowTracker, HnswIndex, HybridMatcher, Language, LeaseRegistry, LeaseStatus,
+    LocusWasmBridge, NullPropagationTracker, SymbolGraph,
 };
+use std::time::Instant;
 
 #[test]
 fn test_multi_agent_symbol_leases_and_conflict_resolution() {
@@ -31,7 +31,11 @@ fn test_multi_agent_symbol_leases_and_conflict_resolution() {
     // 2. Agent B attempts to acquire lease on same symbol -> Conflict
     let status_b = registry.acquire(fqn_login, "agent_beta", 5000);
     match status_b {
-        LeaseStatus::Conflict { fqn, current_holder, remaining_ttl_ms } => {
+        LeaseStatus::Conflict {
+            fqn,
+            current_holder,
+            remaining_ttl_ms,
+        } => {
             assert_eq!(fqn, fqn_login);
             assert_eq!(current_holder, "agent_alpha");
             assert!(remaining_ttl_ms > 0);
@@ -120,9 +124,15 @@ fn test_in_memory_quantized_hnsw_vector_index() {
     let elapsed_us = start.elapsed().as_nanos() as f64 / 1000.0;
 
     assert!(!hits.is_empty());
-    assert_eq!(hits[0].0, 10, "Nearest neighbor ID should match vector dimension assignment");
+    assert_eq!(
+        hits[0].0, 10,
+        "Nearest neighbor ID should match vector dimension assignment"
+    );
     println!("HNSW 500-node Vector Search Latency: {:.2}µs", elapsed_us);
-    assert!(elapsed_us < 1000.0, "Vector search must be sub-millisecond (< 1ms)");
+    assert!(
+        elapsed_us < 1000.0,
+        "Vector search must be sub-millisecond (< 1ms)"
+    );
 }
 
 #[test]

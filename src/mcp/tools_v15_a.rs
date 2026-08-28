@@ -5,10 +5,10 @@
 
 #![forbid(unsafe_code)]
 
-use std::collections::HashMap;
-use std::sync::LazyLock;
 use parking_lot::Mutex;
 use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::sync::LazyLock;
 
 use crate::remediate::AutoFixer;
 use crate::tx::WorkspaceTransaction;
@@ -35,15 +35,18 @@ pub fn handle_begin_tx(_args: &Value) -> Result<Value, String> {
 
 /// Handle `stage_tx` MCP tool invocation.
 pub fn handle_stage_tx(args: &Value) -> Result<Value, String> {
-    let tx_id = args.get("tx_id")
+    let tx_id = args
+        .get("tx_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| "Missing required parameter 'tx_id'".to_string())?;
 
-    let file_path = args.get("file_path")
+    let file_path = args
+        .get("file_path")
         .and_then(|v| v.as_str())
         .ok_or_else(|| "Missing required parameter 'file_path'".to_string())?;
 
-    let content = args.get("content")
+    let content = args
+        .get("content")
         .and_then(|v| v.as_str())
         .ok_or_else(|| "Missing required parameter 'content'".to_string())?;
 
@@ -59,7 +62,8 @@ pub fn handle_stage_tx(args: &Value) -> Result<Value, String> {
     };
 
     let mut reg = TX_REGISTRY.lock();
-    let tx = reg.get_mut(tx_id)
+    let tx = reg
+        .get_mut(tx_id)
         .ok_or_else(|| format!("Transaction '{}' not found or expired", tx_id))?;
 
     tx.stage_file(file_path, content, language)?;
@@ -74,12 +78,14 @@ pub fn handle_stage_tx(args: &Value) -> Result<Value, String> {
 
 /// Handle `commit_tx` MCP tool invocation.
 pub fn handle_commit_tx(args: &Value) -> Result<Value, String> {
-    let tx_id = args.get("tx_id")
+    let tx_id = args
+        .get("tx_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| "Missing required parameter 'tx_id'".to_string())?;
 
     let mut reg = TX_REGISTRY.lock();
-    let mut tx = reg.remove(tx_id)
+    let mut tx = reg
+        .remove(tx_id)
         .ok_or_else(|| format!("Transaction '{}' not found", tx_id))?;
 
     let report = tx.commit();
@@ -97,12 +103,14 @@ pub fn handle_commit_tx(args: &Value) -> Result<Value, String> {
 
 /// Handle `rollback_tx` MCP tool invocation.
 pub fn handle_rollback_tx(args: &Value) -> Result<Value, String> {
-    let tx_id = args.get("tx_id")
+    let tx_id = args
+        .get("tx_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| "Missing required parameter 'tx_id'".to_string())?;
 
     let mut reg = TX_REGISTRY.lock();
-    let mut tx = reg.remove(tx_id)
+    let mut tx = reg
+        .remove(tx_id)
         .ok_or_else(|| format!("Transaction '{}' not found", tx_id))?;
 
     let report = tx.rollback();
@@ -117,7 +125,8 @@ pub fn handle_rollback_tx(args: &Value) -> Result<Value, String> {
 
 /// Handle `auto_remediate` MCP tool invocation.
 pub fn handle_auto_remediate(args: &Value) -> Result<Value, String> {
-    let code = args.get("code")
+    let code = args
+        .get("code")
         .and_then(|v| v.as_str())
         .ok_or_else(|| "Missing required parameter 'code'".to_string())?;
 
