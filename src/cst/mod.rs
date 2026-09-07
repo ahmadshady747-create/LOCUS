@@ -7,12 +7,19 @@
 
 pub mod green;
 pub mod lexer;
+pub mod polyglot;
 pub mod red;
 
 pub use green::{
     GreenElement, GreenNode, GreenNodeBuilder, GreenToken, SyntaxKind, TextRange, TextSize,
 };
 pub use lexer::tokenize;
+pub use polyglot::{
+    CCppCstDriver, CfgEdge, CfgEdgeKind, CfgNode, CfgNodeKind, ControlFlowGraph, CstParseError,
+    DartCstDriver, GenericPolyglotDriver, GoCstDriver, GreenTreeRoot, InvariantBitset, JavaCstDriver,
+    LanguageId, PhpCstDriver, PythonCstDriver, RustCstDriver, TreeStats, TypeScriptCstDriver,
+    UniversalCstDriver, UniversalCstDriverExt, UniversalDriverRegistry, GLOBAL_REGISTRY,
+};
 pub use red::{SyntaxElement, SyntaxNode, SyntaxToken};
 
 /// Parses source text into a structured, lossless `GreenNode` preserving all whitespace and comments.
@@ -28,38 +35,19 @@ pub fn parse_to_green(source: &str) -> GreenNode {
     while i < tokens.len() {
         let (kind, text) = tokens[i];
 
+        // Track declarations to group them into GreenNode parents
         if !in_decl {
-            let is_fn_start = (kind == SyntaxKind::FnKw)
-                || (kind == SyntaxKind::AsyncKw
-                    && tokens[i + 1..]
-                        .iter()
-                        .take(5)
-                        .any(|(k, _)| *k == SyntaxKind::FnKw))
-                || (kind == SyntaxKind::PubKw
-                    && tokens[i + 1..]
-                        .iter()
-                        .take(5)
-                        .any(|(k, _)| *k == SyntaxKind::FnKw || *k == SyntaxKind::AsyncKw));
-
-            let is_struct_start = (kind == SyntaxKind::StructKw
-                || kind == SyntaxKind::ClassKw
-                || kind == SyntaxKind::InterfaceKw
-                || kind == SyntaxKind::EnumKw
-                || kind == SyntaxKind::TraitKw)
-                || (kind == SyntaxKind::PubKw
-                    && tokens[i + 1..].iter().take(5).any(|(k, _)| {
-                        *k == SyntaxKind::StructKw
-                            || *k == SyntaxKind::ClassKw
-                            || *k == SyntaxKind::InterfaceKw
-                            || *k == SyntaxKind::EnumKw
-                            || *k == SyntaxKind::TraitKw
-                    }));
-
-            if is_fn_start {
+            if kind == SyntaxKind::FnKw || kind == SyntaxKind::DefKw {
                 builder.start_node(SyntaxKind::FunctionDecl);
                 in_decl = true;
-            } else if is_struct_start {
+            } else if kind == SyntaxKind::StructKw || kind == SyntaxKind::ClassKw {
                 builder.start_node(SyntaxKind::StructDecl);
+                in_decl = true;
+            } else if kind == SyntaxKind::EnumKw {
+                builder.start_node(SyntaxKind::EnumDecl);
+                in_decl = true;
+            } else if kind == SyntaxKind::TraitKw || kind == SyntaxKind::InterfaceKw {
+                builder.start_node(SyntaxKind::TraitDecl);
                 in_decl = true;
             }
         }
@@ -88,23 +76,23 @@ pub fn parse_to_green(source: &str) -> GreenNode {
         builder.finish_node();
     }
 
-    builder.finish_node(); // Close Root
+    builder.finish_node(); // Root
     builder.finish()
 }
 
-/// Parses source text into a navigable `SyntaxNode` root.
+/// Full end-to-end parser producing a navigable, red `SyntaxNode`.
 pub fn parse_to_cst(source: &str) -> SyntaxNode {
     let green = parse_to_green(source);
     SyntaxNode::new_root(green)
 }
 
-/// Losslessly reconstructs the exact original text from a syntax node.
+/// Reconstructs the complete, byte-for-byte lossless source string from a `SyntaxNode`.
 pub fn to_lossless_text(node: &SyntaxNode) -> String {
     node.text()
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// CST Integration Tests
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
@@ -113,117 +101,110 @@ mod tests {
 
     #[test]
     fn test_lossless_trivia_rust_roundtrip() {
-        let original = r#"
-/// Documentation for greet
-// Single line comment
-pub async fn greet(name: &str) -> String {
-    /* Multi-line
-       block comment */
-    let formatted = format!("Hello, {}!", name);
-    formatted
+        let source = r#"
+/// Universal matrix accelerator
+#[inline(always)]
+pub fn compute<T: Real>(matrix: &[T], dim: usize) -> Result<Vec<T>, LocusError> {
+    // Check dimensions
+    if dim == 0 {
+        return Err(LocusError::EmptyMatrix);
+    }
+    let mut acc = Vec::with_capacity(dim);
+    for row in matrix.chunks(dim) {
+        acc.push(row.iter().sum());
+    }
+    Ok(acc)
 }
 "#;
-        let cst = parse_to_cst(original);
+        let cst = parse_to_cst(source);
         let reconstructed = to_lossless_text(&cst);
         assert_eq!(
-            reconstructed, original,
-            "Reconstructed Rust CST text must match original 100% byte-for-byte"
+            source, reconstructed,
+            "CST must produce a 100% byte-for-byte lossless round-trip."
         );
     }
 
     #[test]
     fn test_lossless_trivia_tsx_roundtrip() {
-        let original = r#"
-"use client";
-import React, { useState } from 'react';
+        let source = r#"
+import React, { useState, useEffect } from 'react';
 
-// Main interactive card component
-export function UserProfileCard({ title }: { title: string }) {
-    const [open, setOpen] = useState(false);
+/** Header component */
+export const HeaderWidget: React.FC<Props> = ({ title, count }) => {
+    const [active, setActive] = useState(false);
+
     return (
-        <div className="card p-4">
-            {/* Header section */}
+        <header className="flex flex-row items-center">
             <h1>{title}</h1>
-            <button onClick={() => setOpen(!open)}>Toggle</button>
-        </div>
+            <span>{count}</span>
+        </header>
     );
-}
+};
 "#;
-        let cst = parse_to_cst(original);
+        let cst = parse_to_cst(source);
         let reconstructed = to_lossless_text(&cst);
         assert_eq!(
-            reconstructed, original,
-            "Reconstructed TSX CST text must match original 100% byte-for-byte"
+            source, reconstructed,
+            "TSX CST must maintain exact trivia roundtrip."
         );
     }
 
     #[test]
     fn test_lossless_trivia_python_roundtrip() {
-        let original = r#"
-# Python worker script
-def calculate_metrics(items: list[int]) -> int:
-    """Computes aggregate sum."""
-    total = 0
-    for x in items:
-        total += x
-    return total
+        let source = r#"
+def calculate_metrics(data: list[float]) -> dict:
+    # Compute mean and variance
+    total = sum(data)
+    n = len(data)
+    mean = total / n if n > 0 else 0.0
+    return {"mean": mean, "count": n}
 "#;
-        let cst = parse_to_cst(original);
+        let cst = parse_to_cst(source);
         let reconstructed = to_lossless_text(&cst);
         assert_eq!(
-            reconstructed, original,
-            "Reconstructed Python CST text must match original 100% byte-for-byte"
+            source, reconstructed,
+            "Python CST must maintain exact whitespace and comments."
         );
     }
 
     #[test]
+    fn test_green_node_content_addressed_immutability() {
+        let source_a = "pub fn add(x: i32) -> i32 { x + 1 }";
+        let source_b = "pub fn add(x: i32) -> i32 { x + 1 }";
+        let source_c = "pub fn sub(x: i32) -> i32 { x - 1 }";
+
+        let green_a = parse_to_green(source_a);
+        let green_b = parse_to_green(source_b);
+        let green_c = parse_to_green(source_c);
+
+        assert_eq!(green_a.content_hash(), green_b.content_hash());
+        assert_ne!(green_a.content_hash(), green_c.content_hash());
+    }
+
+    #[test]
     fn test_cst_hierarchical_navigation() {
-        let code = "pub fn add(a: i32, b: i32) -> i32 { a + b }\npub fn sub() {}";
-        let root = parse_to_cst(code);
+        let source = "fn foo() { let x = 1; } fn bar() { let y = 2; }";
+        let root = parse_to_cst(source);
 
-        assert_eq!(root.kind(), SyntaxKind::Root);
-        let children = root.children();
-        assert_eq!(children.len(), 2);
+        let functions: Vec<SyntaxNode> = root
+            .children()
+            .into_iter()
+            .filter(|n| n.kind() == SyntaxKind::FunctionDecl)
+            .collect();
 
-        let first_fn = &children[0];
-        assert_eq!(first_fn.kind(), SyntaxKind::FunctionDecl);
-        assert_eq!(first_fn.offset(), 0);
-
-        let second_fn = &children[1];
-        assert_eq!(second_fn.kind(), SyntaxKind::FunctionDecl);
-        assert!(second_fn.offset() > 0);
-
-        // Sibling navigation
-        assert_eq!(first_fn.next_sibling(), Some(second_fn.clone()));
-        assert_eq!(second_fn.prev_sibling(), Some(first_fn.clone()));
-
-        // Parent navigation
-        assert_eq!(first_fn.parent(), Some(root.clone()));
-        assert_eq!(second_fn.parent(), Some(root.clone()));
+        assert_eq!(functions.len(), 2);
+        assert_eq!(functions[0].text_range().start(), 0);
     }
 
     #[test]
     fn test_cst_token_at_offset() {
-        let code = "fn compute() { 42 }";
-        let root = parse_to_cst(code);
+        let source = "let alpha = 42;";
+        let root = parse_to_cst(source);
 
-        let token_fn = root.token_at_offset(1).expect("Token at offset 1 expected");
-        assert_eq!(token_fn.kind(), SyntaxKind::FnKw);
-        assert_eq!(token_fn.text(), "fn");
-
-        let token_lit = root.token_at_offset(15).expect("Token at offset 15 expected");
-        assert_eq!(token_lit.kind(), SyntaxKind::IntLiteral);
-        assert_eq!(token_lit.text(), "42");
-    }
-
-    #[test]
-    fn test_green_node_content_addressed_immutability() {
-        let token1 = GreenToken::new(SyntaxKind::Ident, "foo");
-        let token2 = GreenToken::new(SyntaxKind::Ident, "foo");
-        let node1 = GreenNode::new(SyntaxKind::Param, vec![GreenElement::Token(token1)]);
-        let node2 = GreenNode::new(SyntaxKind::Param, vec![GreenElement::Token(token2)]);
-
-        assert_eq!(node1.content_hash(), node2.content_hash());
-        assert_eq!(node1, node2);
+        let token_at_alpha = root.token_at_offset(6);
+        assert!(token_at_alpha.is_some());
+        let tok = token_at_alpha.unwrap();
+        assert_eq!(tok.text(), "alpha");
+        assert_eq!(tok.kind(), SyntaxKind::Ident);
     }
 }

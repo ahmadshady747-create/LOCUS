@@ -1,5 +1,6 @@
 //! Model Context Protocol (MCP) Server for locus-engine over stdio (JSON-RPC 2.0).
 
+pub mod tools;
 pub mod tools_v15_a;
 
 use serde::Deserialize;
@@ -527,6 +528,10 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                                     "type": "string",
                                     "description": "Target file to trace"
                                 },
+                                "code": {
+                                    "type": "string",
+                                    "description": "Optional raw source code snippet to analyze directly without disk access"
+                                },
                                 "symbol": {
                                     "type": "string",
                                     "description": "Optional symbol to scope taint tracking"
@@ -694,6 +699,72 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                                 "top_k": {
                                     "type": "integer",
                                     "description": "Number of nearest neighbors to return (default: 5)"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "semantic_analyze",
+                        "description": "Executes comprehensive semantic invariant analysis (Rules S1..S5), synthesizes formal mathematical proofs with WP calculus derivations, detects counterexamples, and generates deterministic auto-fixes with optional SARIF v2.1.0 export.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "string",
+                                    "description": "Source code text to analyze"
+                                },
+                                "path": {
+                                    "type": "string",
+                                    "description": "Optional file path to load source code from"
+                                },
+                                "language": {
+                                    "type": "string",
+                                    "description": "Programming language (typescript, javascript, rust, etc.)"
+                                },
+                                "sarif": {
+                                    "type": "boolean",
+                                    "description": "If true, includes full OASIS SARIF v2.1.0 report in the response (default: false)"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "verify_proof",
+                        "description": "Executes high-throughput dynamic AST & semantic proof verification on code claims, evaluates assertions with fail-fast tri-state verdicts, and mints cryptographic SHA-256 certificates in sub-0.15ms.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "code": {
+                                    "type": "string",
+                                    "description": "Source code text to verify"
+                                },
+                                "path": {
+                                    "type": "string",
+                                    "description": "Optional file path to load source code from"
+                                },
+                                "language": {
+                                    "type": "string",
+                                    "description": "Optional target programming language (default: rust)"
+                                },
+                                "claim": {
+                                    "type": "object",
+                                    "description": "ProofClaim JSON object containing claim_id, target_symbol, invariant_name, and assertions"
+                                },
+                                "claim_id": {
+                                    "type": "string",
+                                    "description": "Optional claim ID shorthand if constructing inline claim"
+                                },
+                                "target_symbol": {
+                                    "type": "string",
+                                    "description": "Optional target symbol shorthand"
+                                },
+                                "invariant_name": {
+                                    "type": "string",
+                                    "description": "Optional invariant name shorthand"
+                                },
+                                "assertions": {
+                                    "type": "array",
+                                    "description": "Optional list of ProofAssertion objects"
                                 }
                             }
                         }
@@ -1485,10 +1556,14 @@ fn execute_tool(name: &str, args: &Value) -> Value {
                 }
             };
             let symbol = args.get("symbol").and_then(|s| s.as_str()).unwrap_or("*");
-            let content = match fs::read_to_string(file_path) {
-                Ok(c) => c,
-                Err(e) => {
-                    return json!({"content": [{"type": "text", "text": format!("Error reading file '{}': {}", file_path, e)}], "isError": true})
+            let content = if let Some(c) = args.get("code").and_then(|s| s.as_str()) {
+                c.to_string()
+            } else {
+                match fs::read_to_string(file_path) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        return json!({"content": [{"type": "text", "text": format!("Error reading file '{}': {}", file_path, e)}], "isError": true})
+                    }
                 }
             };
             let reports =
@@ -1718,6 +1793,83 @@ fn execute_tool(name: &str, args: &Value) -> Value {
             })
         }
 
+        "semantic_analyze" => match tools::handle_semantic_analyze(args) {
+            Ok(val) => json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&val).unwrap_or_default()}]
+            }),
+            Err(e) => json!({
+                "content": [{"type": "text", "text": format!("Error in semantic_analyze: {}", e)}],
+                "isError": true
+            }),
+        },
+
+        "verify_proof" => {
+            let code = if let Some(c) = args.get("code").and_then(|s| s.as_str()) {
+                c.to_string()
+            } else if let Some(p) = args.get("path").and_then(|s| s.as_str()) {
+                match fs::read_to_string(p) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        return json!({
+                            "content": [{"type": "text", "text": format!("Error reading path '{}': {}", p, e)}],
+                            "isError": true
+                        });
+                    }
+                }
+            } else {
+                return json!({
+                    "content": [{"type": "text", "text": "Error: Either 'code' or 'path' argument is required"}],
+                    "isError": true
+                });
+            };
+
+            let language = args.get("language").and_then(|s| s.as_str()).unwrap_or("rust");
+
+            let claim: crate::proof_verifier::ProofClaim = if let Some(claim_val) = args.get("claim") {
+                match serde_json::from_value(claim_val.clone()) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        return json!({
+                            "content": [{"type": "text", "text": format!("Invalid 'claim' payload: {}", e)}],
+                            "isError": true
+                        });
+                    }
+                }
+            } else {
+                let claim_id = args.get("claim_id").and_then(|s| s.as_str()).unwrap_or("claim-dynamic-01");
+                let target_symbol = args.get("target_symbol").and_then(|s| s.as_str()).unwrap_or("target");
+                let invariant_name = args.get("invariant_name").and_then(|s| s.as_str()).unwrap_or("InvariantSafety");
+                let mut assertions = Vec::new();
+                if let Some(arr) = args.get("assertions").and_then(|v| v.as_array()) {
+                    for item in arr {
+                        if let Ok(ast_assertion) = serde_json::from_value(item.clone()) {
+                            assertions.push(ast_assertion);
+                        }
+                    }
+                }
+                let mut c = crate::proof_verifier::ProofClaim::new(
+                    claim_id,
+                    "inline",
+                    target_symbol,
+                    invariant_name,
+                    0,
+                );
+                c.assertions = assertions;
+                c
+            };
+
+            let result = crate::proof_verifier::ProofVerifierEngine::verify_source(&code, Some(language), &claim);
+            let result_json = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
+            json!({
+                "content": [
+                    {
+                        "type": "text",
+                        "text": result_json
+                    }
+                ]
+            })
+        }
+
         _ => {
             json!({
                 "content": [{"type": "text", "text": format!("Unknown tool: {}", name)}],
@@ -1782,7 +1934,7 @@ mod tests {
         let resp = handle_json_rpc_message(list_req).expect("Response expected");
         let parsed: Value = serde_json::from_str(&resp).unwrap();
         let tools = parsed["result"]["tools"].as_array().expect("Tools array");
-        assert_eq!(tools.len(), 28);
+        assert_eq!(tools.len(), 30);
 
         let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
         assert!(names.contains(&"check_safety"));
@@ -1813,6 +1965,113 @@ mod tests {
         assert!(names.contains(&"verify_occ_token"));
         assert!(names.contains(&"morph_ast"));
         assert!(names.contains(&"simd_vector_search"));
+        assert!(names.contains(&"semantic_analyze"));
+        assert!(names.contains(&"verify_proof"));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_verify_proof_proven() {
+        let call_req = r#"{
+            "jsonrpc": "2.0",
+            "id": 31,
+            "method": "tools/call",
+            "params": {
+                "name": "verify_proof",
+                "arguments": {
+                    "code": "pub async fn query_engine(q: &str) -> String { let clean = DOMPurify.sanitize(q); clean.to_string() }",
+                    "language": "rust",
+                    "claim": {
+                        "claim_id": "claim-mcp-01",
+                        "target_file": "src/engine.rs",
+                        "target_symbol": "query_engine",
+                        "invariant_name": "SanitizedQueryInvariant",
+                        "assertions": [
+                            {
+                                "NodeExists": {
+                                    "node_kind": "FunctionDeclaration",
+                                    "identifier": "query_engine"
+                                }
+                            },
+                            {
+                                "PropertyEquals": {
+                                    "node_id": "query_engine",
+                                    "property": "visibility",
+                                    "expected_value": "pub"
+                                }
+                            }
+                        ],
+                        "created_at_ms": 1725150000000
+                    }
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(call_req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("\"verdict\": \"Proven\""));
+        assert!(text.contains("LOCUS-PROOF-v2:"));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_verify_proof_refuted() {
+        let call_req = r#"{
+            "jsonrpc": "2.0",
+            "id": 32,
+            "method": "tools/call",
+            "params": {
+                "name": "verify_proof",
+                "arguments": {
+                    "code": "fn private_worker() {}",
+                    "language": "rust",
+                    "claim": {
+                        "claim_id": "claim-mcp-02",
+                        "target_file": "src/worker.rs",
+                        "target_symbol": "private_worker",
+                        "invariant_name": "PublicApiInvariant",
+                        "assertions": [
+                            {
+                                "PropertyEquals": {
+                                    "node_id": "private_worker",
+                                    "property": "visibility",
+                                    "expected_value": "pub"
+                                }
+                            }
+                        ],
+                        "created_at_ms": 1725150000000
+                    }
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(call_req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("Refuted"));
+        assert!(text.contains("failed_assertion_index"));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_semantic_analyze() {
+        let call_req = r#"{
+            "jsonrpc": "2.0",
+            "id": 30,
+            "method": "tools/call",
+            "params": {
+                "name": "semantic_analyze",
+                "arguments": {
+                    "code": "const items = [1, 2]; items.forEach(async (x) => { await doTask(x); });",
+                    "language": "typescript",
+                    "sarif": true
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(call_req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("\"violations_count\": 1"));
+        assert!(text.contains("AsyncIteratorRace"));
+        assert!(text.contains("mathematical_proof"));
+        assert!(text.contains("remediation_patch"));
+        assert!(text.contains("sarifLog"));
     }
 
     #[test]
@@ -2063,5 +2322,375 @@ mod tests {
         let parsed: Value = serde_json::from_str(&resp).unwrap();
         let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
         assert!(text.contains("\"new\""));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_tx_lifecycle() {
+        let begin_req = r#"{"jsonrpc":"2.0","id":100,"method":"tools/call","params":{"name":"begin_tx","arguments":{}}}"#;
+        let resp = handle_json_rpc_message(begin_req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        let val: Value = serde_json::from_str(text).unwrap();
+        let tx_id = val["tx_id"].as_str().unwrap().to_string();
+        assert_eq!(val["status"], "success");
+
+        let stage_req = json!({
+            "jsonrpc": "2.0",
+            "id": 101,
+            "method": "tools/call",
+            "params": {
+                "name": "stage_tx",
+                "arguments": {
+                    "tx_id": tx_id,
+                    "file_path": "src/dummy_math.rs",
+                    "content": "pub fn add_staged(a: i32, b: i32) -> i32 { a + b }",
+                    "language": "rust"
+                }
+            }
+        });
+        let resp = handle_json_rpc_message(&stage_req.to_string()).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        let val: Value = serde_json::from_str(text).unwrap();
+        assert_eq!(val["status"], "success");
+
+        let commit_req = json!({
+            "jsonrpc": "2.0",
+            "id": 102,
+            "method": "tools/call",
+            "params": {
+                "name": "commit_tx",
+                "arguments": {
+                    "tx_id": tx_id
+                }
+            }
+        });
+        let resp = handle_json_rpc_message(&commit_req.to_string()).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        let val: Value = serde_json::from_str(text).unwrap();
+        assert_eq!(val["passed_verification"], true);
+    }
+
+    #[test]
+    fn test_mcp_tool_call_tx_rollback() {
+        let begin_req = r#"{"jsonrpc":"2.0","id":103,"method":"tools/call","params":{"name":"begin_tx","arguments":{}}}"#;
+        let resp = handle_json_rpc_message(begin_req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        let val: Value = serde_json::from_str(text).unwrap();
+        let tx_id = val["tx_id"].as_str().unwrap().to_string();
+
+        let rollback_req = json!({
+            "jsonrpc": "2.0",
+            "id": 104,
+            "method": "tools/call",
+            "params": {
+                "name": "rollback_tx",
+                "arguments": {
+                    "tx_id": tx_id
+                }
+            }
+        });
+        let resp = handle_json_rpc_message(&rollback_req.to_string()).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        let val: Value = serde_json::from_str(text).unwrap();
+        assert_eq!(val["status"], "RolledBack");
+    }
+
+    #[test]
+    fn test_mcp_tool_call_tx_safety_violation_abort() {
+        let begin_req = r#"{"jsonrpc":"2.0","id":105,"method":"tools/call","params":{"name":"begin_tx","arguments":{}}}"#;
+        let resp = handle_json_rpc_message(begin_req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        let val: Value = serde_json::from_str(text).unwrap();
+        let tx_id = val["tx_id"].as_str().unwrap().to_string();
+
+        let stage_req = json!({
+            "jsonrpc": "2.0",
+            "id": 106,
+            "method": "tools/call",
+            "params": {
+                "name": "stage_tx",
+                "arguments": {
+                    "tx_id": tx_id,
+                    "file_path": "src/unsafe_test.rs",
+                    "content": "pub fn bad(opt: Option<i32>) -> i32 { opt.unwrap() }",
+                    "language": "rust"
+                }
+            }
+        });
+        let _ = handle_json_rpc_message(&stage_req.to_string());
+
+        let commit_req = json!({
+            "jsonrpc": "2.0",
+            "id": 107,
+            "method": "tools/call",
+            "params": {
+                "name": "commit_tx",
+                "arguments": {
+                    "tx_id": tx_id
+                }
+            }
+        });
+        let resp = handle_json_rpc_message(&commit_req.to_string()).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        let val: Value = serde_json::from_str(text).unwrap();
+        assert_eq!(val["passed_verification"], false);
+        assert!(val["status"].as_str().unwrap().contains("Failed"));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_auto_remediate() {
+        let req = r#"{
+            "jsonrpc": "2.0",
+            "id": 108,
+            "method": "tools/call",
+            "params": {
+                "name": "auto_remediate",
+                "arguments": {
+                    "code": "const val = user.profile.address.city;"
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        let val: Value = serde_json::from_str(text).unwrap();
+        assert_eq!(val["success"], true);
+    }
+
+    #[test]
+    fn test_mcp_tool_call_symbol_lease_lifecycle() {
+        let acq_req = r#"{
+            "jsonrpc": "2.0",
+            "id": 109,
+            "method": "tools/call",
+            "params": {
+                "name": "acquire_symbol_lease",
+                "arguments": {
+                    "fqn": "src/auth/service.rs::validate_user",
+                    "agent_id": "agent-alpha-001",
+                    "ttl_ms": 10000
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(acq_req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        let val: Value = serde_json::from_str(text).unwrap();
+        let lease_id = val["Acquired"]["lease_id"].as_str().unwrap().to_string();
+
+        let renew_req = json!({
+            "jsonrpc": "2.0",
+            "id": 110,
+            "method": "tools/call",
+            "params": {
+                "name": "renew_symbol_lease",
+                "arguments": {
+                    "lease_id": lease_id,
+                    "agent_id": "agent-alpha-001",
+                    "extension_ms": 20000
+                }
+            }
+        });
+        let resp = handle_json_rpc_message(&renew_req.to_string()).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("Renewed"));
+
+        let rel_req = json!({
+            "jsonrpc": "2.0",
+            "id": 111,
+            "method": "tools/call",
+            "params": {
+                "name": "release_symbol_lease",
+                "arguments": {
+                    "lease_id": lease_id,
+                    "agent_id": "agent-alpha-001"
+                }
+            }
+        });
+        let resp = handle_json_rpc_message(&rel_req.to_string()).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("Released"));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_acquire_subtree_lease() {
+        let req = r#"{
+            "jsonrpc": "2.0",
+            "id": 112,
+            "method": "tools/call",
+            "params": {
+                "name": "acquire_subtree_lease",
+                "arguments": {
+                    "pattern": "src/payments/*",
+                    "agent_id": "agent-beta-002",
+                    "ttl_ms": 15000
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("Acquired"));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_verify_occ_token() {
+        let req = r#"{
+            "jsonrpc": "2.0",
+            "id": 113,
+            "method": "tools/call",
+            "params": {
+                "name": "verify_occ_token",
+                "arguments": {
+                    "fqn": "src/orders.rs::OrderState",
+                    "expected_version": 1,
+                    "commit": true
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("\"status\":\"success\"") || text.contains("\"status\": \"success\""));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_trace_taint_flow() {
+        let req = r#"{
+            "jsonrpc": "2.0",
+            "id": 114,
+            "method": "tools/call",
+            "params": {
+                "name": "trace_taint_flow",
+                "arguments": {
+                    "file_path": "src/api/handler.rs",
+                    "code": "pub async fn handle(req: Request) { let query = req.param(); db.execute(query); }",
+                    "symbol": "handle"
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(!text.is_empty());
+    }
+
+    #[test]
+    fn test_mcp_tool_call_audit_taint_path() {
+        let req = r#"{
+            "jsonrpc": "2.0",
+            "id": 115,
+            "method": "tools/call",
+            "params": {
+                "name": "audit_taint_path",
+                "arguments": {
+                    "file_path": "src/auth.rs",
+                    "code": "pub fn login(user_input: &str) { let clean = sanitize(user_input); exec(clean); }",
+                    "symbol": "login"
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(!text.is_empty());
+    }
+
+    #[test]
+    fn test_mcp_tool_call_hybrid_search() {
+        let req = r#"{
+            "jsonrpc": "2.0",
+            "id": 116,
+            "method": "tools/call",
+            "params": {
+                "name": "hybrid_search",
+                "arguments": {
+                    "query": "AstGuard",
+                    "path": "src",
+                    "top_k": 3
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(text.contains("hits"));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_query_cst() {
+        let req = r#"{
+            "jsonrpc": "2.0",
+            "id": 117,
+            "method": "tools/call",
+            "params": {
+                "name": "query_cst",
+                "arguments": {
+                    "code": "fn main() { println!(\"hello\"); }",
+                    "language": "rust",
+                    "offset": 3
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        let val: Value = serde_json::from_str(text).unwrap();
+        assert_eq!(val["status"], "success");
+        assert_eq!(val["trivia_roundtrip_intact"], true);
+    }
+
+    #[test]
+    fn test_mcp_tool_call_morph_ast() {
+        let req = r#"{
+            "jsonrpc": "2.0",
+            "id": 118,
+            "method": "tools/call",
+            "params": {
+                "name": "morph_ast",
+                "arguments": {
+                    "code": "const val = user.profile.name;"
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        let val: Value = serde_json::from_str(text).unwrap();
+        assert_eq!(val["success"], true);
+    }
+
+    #[test]
+    fn test_mcp_tool_call_simd_vector_search() {
+        let req = r#"{
+            "jsonrpc": "2.0",
+            "id": 119,
+            "method": "tools/call",
+            "params": {
+                "name": "simd_vector_search",
+                "arguments": {
+                    "query_text": "ast parser engine",
+                    "corpus": [
+                        {"id": 1, "text": "ast parser syntax tree"},
+                        {"id": 2, "text": "database sql connection"}
+                    ],
+                    "top_k": 2
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        let val: Value = serde_json::from_str(text).unwrap();
+        assert_eq!(val["status"], "success");
+        assert_eq!(val["simd_accelerated"], true);
     }
 }

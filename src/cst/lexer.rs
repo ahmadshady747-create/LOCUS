@@ -77,6 +77,28 @@ pub fn tokenize(source: &str) -> Vec<(SyntaxKind, &str)> {
             continue;
         }
         if b == b'#' {
+            let rest = &source[i + 1..];
+            let trimmed = rest.trim_start();
+            let is_preprocessor = trimmed.starts_with("include")
+                || trimmed.starts_with("define")
+                || trimmed.starts_with("pragma")
+                || trimmed.starts_with("ifdef")
+                || trimmed.starts_with("ifndef")
+                || trimmed.starts_with("endif")
+                || trimmed.starts_with("if")
+                || trimmed.starts_with("else")
+                || trimmed.starts_with("elif")
+                || trimmed.starts_with("undef")
+                || trimmed.starts_with("error")
+                || trimmed.starts_with("warning");
+            let is_rust_attr = rest.starts_with('[') || rest.starts_with("![");
+
+            if is_rust_attr || is_preprocessor {
+                i += 1;
+                tokens.push((SyntaxKind::Hash, &source[start..i]));
+                continue;
+            }
+
             i += 1;
             while i < len && bytes[i] != b'\n' && bytes[i] != b'\r' {
                 i += 1;
@@ -204,9 +226,29 @@ pub fn tokenize(source: &str) -> Vec<(SyntaxKind, &str)> {
         }
 
         // 8. Multi-character Operators & Punctuation
+        if b == b'.' && i + 2 < len && bytes[i + 1] == b'.' && bytes[i + 2] == b'.' {
+            i += 3;
+            tokens.push((SyntaxKind::Ellipsis, &source[start..i]));
+            continue;
+        }
+        if b == b'-' && i + 2 < len && bytes[i + 1] == b'>' && bytes[i + 2] == b'*' {
+            i += 3;
+            tokens.push((SyntaxKind::ArrowStar, &source[start..i]));
+            continue;
+        }
+        if b == b'.' && i + 1 < len && bytes[i + 1] == b'*' {
+            i += 2;
+            tokens.push((SyntaxKind::DotStar, &source[start..i]));
+            continue;
+        }
         if b == b':' && i + 1 < len && bytes[i + 1] == b':' {
             i += 2;
             tokens.push((SyntaxKind::ColonColon, &source[start..i]));
+            continue;
+        }
+        if b == b'?' && i + 1 < len && bytes[i + 1] == b'?' {
+            i += 2;
+            tokens.push((SyntaxKind::NullCoalesce, &source[start..i]));
             continue;
         }
         if b == b'?' && i + 1 < len && bytes[i + 1] == b'.' {
@@ -244,6 +286,51 @@ pub fn tokenize(source: &str) -> Vec<(SyntaxKind, &str)> {
             tokens.push((SyntaxKind::GtEq, &source[start..i]));
             continue;
         }
+        if b == b'+' && i + 1 < len && bytes[i + 1] == b'=' {
+            i += 2;
+            tokens.push((SyntaxKind::PlusEq, &source[start..i]));
+            continue;
+        }
+        if b == b'-' && i + 1 < len && bytes[i + 1] == b'=' {
+            i += 2;
+            tokens.push((SyntaxKind::MinusEq, &source[start..i]));
+            continue;
+        }
+        if b == b'*' && i + 1 < len && bytes[i + 1] == b'=' {
+            i += 2;
+            tokens.push((SyntaxKind::StarEq, &source[start..i]));
+            continue;
+        }
+        if b == b'/' && i + 1 < len && bytes[i + 1] == b'=' {
+            i += 2;
+            tokens.push((SyntaxKind::SlashEq, &source[start..i]));
+            continue;
+        }
+        if b == b'%' && i + 1 < len && bytes[i + 1] == b'=' {
+            i += 2;
+            tokens.push((SyntaxKind::PercentEq, &source[start..i]));
+            continue;
+        }
+        if b == b'&' && i + 1 < len && bytes[i + 1] == b'&' {
+            i += 2;
+            tokens.push((SyntaxKind::AmpAmp, &source[start..i]));
+            continue;
+        }
+        if b == b'|' && i + 1 < len && bytes[i + 1] == b'|' {
+            i += 2;
+            tokens.push((SyntaxKind::PipePipe, &source[start..i]));
+            continue;
+        }
+        if b == b'<' && i + 1 < len && bytes[i + 1] == b'<' {
+            i += 2;
+            tokens.push((SyntaxKind::LtLt, &source[start..i]));
+            continue;
+        }
+        if b == b'>' && i + 1 < len && bytes[i + 1] == b'>' {
+            i += 2;
+            tokens.push((SyntaxKind::GtGt, &source[start..i]));
+            continue;
+        }
 
         // 9. Single-character Punctuation
         let punct_kind = match b {
@@ -268,6 +355,12 @@ pub fn tokenize(source: &str) -> Vec<(SyntaxKind, &str)> {
             b'|' => Some(SyntaxKind::Pipe),
             b'<' => Some(SyntaxKind::Lt),
             b'>' => Some(SyntaxKind::Gt),
+            b'#' => Some(SyntaxKind::Hash),
+            b'~' => Some(SyntaxKind::Tilde),
+            b'^' => Some(SyntaxKind::Caret),
+            b'@' => Some(SyntaxKind::At),
+            b'?' => Some(SyntaxKind::Question),
+            b'$' => Some(SyntaxKind::Dollar),
             _ => None,
         };
 
@@ -310,7 +403,57 @@ pub fn tokenize(source: &str) -> Vec<(SyntaxKind, &str)> {
                 "interface" => SyntaxKind::InterfaceKw,
                 "extends" => SyntaxKind::ExtendsKw,
                 "def" => SyntaxKind::DefKw,
+                "extern" => SyntaxKind::ExternKw,
+                "static" => SyntaxKind::StaticKw,
+                "union" => SyntaxKind::UnionKw,
+                "typedef" => SyntaxKind::TypedefKw,
+                "namespace" => SyntaxKind::NamespaceKw,
+                "template" => SyntaxKind::TemplateKw,
+                "package" => SyntaxKind::PackageKw,
+                "func" => SyntaxKind::FuncKw,
+                "var" => SyntaxKind::VarKw,
+                "go" => SyntaxKind::GoKw,
+                "chan" => SyntaxKind::ChanKw,
+                "defer" => SyntaxKind::DeferKw,
+                "include" => SyntaxKind::IncludeKw,
+                "define" => SyntaxKind::DefineKw,
+                "pragma" => SyntaxKind::PragmaKw,
+                "switch" => SyntaxKind::SwitchKw,
+                "case" => SyntaxKind::CaseKw,
+                "while" => SyntaxKind::WhileKw,
+                "for" => SyntaxKind::ForKw,
+                "do" => SyntaxKind::DoKw,
+                "break" => SyntaxKind::BreakKw,
+                "continue" => SyntaxKind::ContinueKw,
+                "goto" => SyntaxKind::GotoKw,
+                "sizeof" => SyntaxKind::SizeofKw,
+                "inline" => SyntaxKind::InlineKw,
+                "virtual" => SyntaxKind::VirtualKw,
+                "public" => SyntaxKind::PublicKw,
+                "private" => SyntaxKind::PrivateKw,
+                "protected" => SyntaxKind::ProtectedKw,
+                "unsafe" => SyntaxKind::UnsafeKw,
+                "cgo" => SyntaxKind::CgoKw,
+                "implements" => SyntaxKind::ImplementsKw,
+                "override" => SyntaxKind::OverrideKw,
+                "abstract" => SyntaxKind::AbstractKw,
+                "final" => SyntaxKind::FinalKw,
+                "record" => SyntaxKind::RecordKw,
+                "mixin" => SyntaxKind::MixinKw,
+                "with" => SyntaxKind::WithKw,
+                "yield" => SyntaxKind::YieldKw,
+                "await" => SyntaxKind::AwaitKw,
+                "try" => SyntaxKind::TryKw,
+                "catch" => SyntaxKind::CatchKw,
+                "finally" => SyntaxKind::FinallyKw,
+                "throw" => SyntaxKind::ThrowKw,
+                "val" => SyntaxKind::ValKw,
+                "synchronized" => SyntaxKind::SynchronizedKw,
+                "transient" => SyntaxKind::TransientKw,
+                "volatile" => SyntaxKind::VolatileKw,
+                "readonly" => SyntaxKind::ReadonlyKw,
                 "true" | "false" => SyntaxKind::BoolLiteral,
+                "$" => SyntaxKind::Dollar,
                 _ => SyntaxKind::Ident,
             };
             tokens.push((kind, word));

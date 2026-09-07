@@ -342,70 +342,76 @@ impl InvariantsExtended {
 
     /// Run all 21 extended checks (Rules 11 to 31) and return first violation if any
     pub fn check_all(source: &str) -> Option<(ViolationKind, String)> {
+        let code = if let Some(idx) = source.find("#[cfg(test)]") {
+            &source[..idx]
+        } else {
+            source
+        };
+
         // Rules 11..19
-        if let Some(detail) = Self::check_sql_injection(source) {
+        if let Some(detail) = Self::check_sql_injection(code) {
             return Some((ViolationKind::SqlInjection, detail));
         }
-        if let Some(detail) = Self::check_floating_promise(source) {
+        if let Some(detail) = Self::check_floating_promise(code) {
             return Some((ViolationKind::FloatingPromise, detail));
         }
-        if let Some(detail) = Self::check_react_state_race(source) {
+        if let Some(detail) = Self::check_react_state_race(code) {
             return Some((ViolationKind::ReactStateRace, detail));
         }
-        if let Some(detail) = Self::check_listener_leak(source) {
+        if let Some(detail) = Self::check_listener_leak(code) {
             return Some((ViolationKind::ListenerLeak, detail));
         }
-        if let Some(detail) = Self::check_insecure_randomness(source) {
+        if let Some(detail) = Self::check_insecure_randomness(code) {
             return Some((ViolationKind::InsecureRandomness, detail));
         }
-        if let Some(detail) = Self::check_path_traversal(source) {
+        if let Some(detail) = Self::check_path_traversal(code) {
             return Some((ViolationKind::PathTraversal, detail));
         }
-        if let Some(detail) = Self::check_unbounded_regex(source) {
+        if let Some(detail) = Self::check_unbounded_regex(code) {
             return Some((ViolationKind::UnboundedRegex, detail));
         }
-        if let Some(detail) = Self::check_dynamic_code_eval(source) {
+        if let Some(detail) = Self::check_dynamic_code_eval(code) {
             return Some((ViolationKind::DynamicCodeEval, detail));
         }
-        if let Some(detail) = Self::check_untyped_union_access(source) {
+        if let Some(detail) = Self::check_untyped_union_access(code) {
             return Some((ViolationKind::UntypedUnionAccess, detail));
         }
 
         // Rules 20..31 (New Enterprise Invariants)
-        if let Some(detail) = Self::check_circular_mem_leak(source) {
+        if let Some(detail) = Self::check_circular_mem_leak(code) {
             return Some((ViolationKind::CircularMemLeak, detail));
         }
-        if let Some(detail) = Self::check_async_cancellation_safety(source) {
+        if let Some(detail) = Self::check_async_cancellation_safety(code) {
             return Some((ViolationKind::AsyncCancellationSafety, detail));
         }
-        if let Some(detail) = Self::check_constant_time_crypto(source) {
+        if let Some(detail) = Self::check_constant_time_crypto(code) {
             return Some((ViolationKind::ConstantTimeCrypto, detail));
         }
-        if let Some(detail) = Self::check_exhaustive_enum_narrowing(source) {
+        if let Some(detail) = Self::check_exhaustive_enum_narrowing(code) {
             return Some((ViolationKind::ExhaustiveEnumNarrowing, detail));
         }
-        if let Some(detail) = Self::check_resource_descriptor_leak(source) {
+        if let Some(detail) = Self::check_resource_descriptor_leak(code) {
             return Some((ViolationKind::ResourceDescriptorLeak, detail));
         }
-        if let Some(detail) = Self::check_ssrf_unsafe_fetch(source) {
+        if let Some(detail) = Self::check_ssrf_unsafe_fetch(code) {
             return Some((ViolationKind::SsrfUnsafeFetch, detail));
         }
-        if let Some(detail) = Self::check_unbounded_channel_deadlock(source) {
+        if let Some(detail) = Self::check_unbounded_channel_deadlock(code) {
             return Some((ViolationKind::UnboundedChannelDeadlock, detail));
         }
-        if let Some(detail) = Self::check_prototype_pollution(source) {
+        if let Some(detail) = Self::check_prototype_pollution(code) {
             return Some((ViolationKind::PrototypePollution, detail));
         }
-        if let Some(detail) = Self::check_cors_wildcard_credentials(source) {
+        if let Some(detail) = Self::check_cors_wildcard_credentials(code) {
             return Some((ViolationKind::CorsWildcardCredentials, detail));
         }
-        if let Some(detail) = Self::check_hardcoded_key_entropy(source) {
+        if let Some(detail) = Self::check_hardcoded_key_entropy(code) {
             return Some((ViolationKind::HardcodedKeyEntropy, detail));
         }
-        if let Some(detail) = Self::check_unchecked_arithmetic_overflow(source) {
+        if let Some(detail) = Self::check_unchecked_arithmetic_overflow(code) {
             return Some((ViolationKind::UncheckedArithmeticOverflow, detail));
         }
-        if let Some(detail) = Self::check_atomic_state_mutation(source) {
+        if let Some(detail) = Self::check_atomic_state_mutation(code) {
             return Some((ViolationKind::AtomicStateMutation, detail));
         }
 

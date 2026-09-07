@@ -53,6 +53,59 @@ pub enum SyntaxKind {
     ExtendsKw,
     DefKw,
 
+    // --- Systems & High-Performance Keywords (Rust, C, C++, Go) ---
+    ExternKw,
+    StaticKw,
+    UnionKw,
+    TypedefKw,
+    NamespaceKw,
+    TemplateKw,
+    PackageKw,
+    FuncKw,
+    VarKw,
+    GoKw,
+    ChanKw,
+    DeferKw,
+    IncludeKw,
+    DefineKw,
+    PragmaKw,
+    SwitchKw,
+    CaseKw,
+    WhileKw,
+    ForKw,
+    DoKw,
+    BreakKw,
+    ContinueKw,
+    GotoKw,
+    SizeofKw,
+    InlineKw,
+    VirtualKw,
+    PublicKw,
+    PrivateKw,
+    ProtectedKw,
+    UnsafeKw,
+    CgoKw,
+
+    // --- Application & Enterprise Keywords (TS, Dart, Python, PHP, Java) ---
+    ImplementsKw,
+    OverrideKw,
+    AbstractKw,
+    FinalKw,
+    RecordKw,
+    MixinKw,
+    WithKw,
+    YieldKw,
+    AwaitKw,
+    TryKw,
+    CatchKw,
+    FinallyKw,
+    ThrowKw,
+    ValKw,
+    SynchronizedKw,
+    TransientKw,
+    VolatileKw,
+    ReadonlyKw,
+
     // --- Literals ---
     IntLiteral,
     FloatLiteral,
@@ -90,6 +143,25 @@ pub enum SyntaxKind {
     LtEq,
     GtEq,
     BangEq,
+    Hash,
+    Tilde,
+    Caret,
+    PlusEq,
+    MinusEq,
+    StarEq,
+    SlashEq,
+    PercentEq,
+    AmpAmp,
+    PipePipe,
+    LtLt,
+    GtGt,
+    ArrowStar,
+    DotStar,
+    Ellipsis,
+    At,
+    Dollar,
+    Question,
+    NullCoalesce,
 
     // --- Identifiers & Names ---
     Ident,
@@ -122,6 +194,35 @@ pub enum SyntaxKind {
     ExportStmt,
     JsxElement,
     ErrorNode,
+
+    // --- Systems & Enterprise Composite Nodes ---
+    NamespaceDecl,
+    TemplateDecl,
+    UnionDecl,
+    TypedefDecl,
+    ClassDecl,
+    MethodDecl,
+    IncludeDirective,
+    MacroDefine,
+    ExternBlock,
+    PackageDecl,
+    CgoDirective,
+    IfStmt,
+    LoopStmt,
+    SwitchStmt,
+    CaseArm,
+    ReturnStmt,
+    TypeDecl,
+    InterfaceDecl,
+    RecordDecl,
+    MixinDecl,
+    ConstructorDecl,
+    AnnotationNode,
+    DecoratorNode,
+    AttributeNode,
+    PropertyDecl,
+    WidgetDecl,
+    StateDecl,
 }
 
 impl SyntaxKind {
@@ -166,6 +267,55 @@ impl SyntaxKind {
                 | SyntaxKind::InterfaceKw
                 | SyntaxKind::ExtendsKw
                 | SyntaxKind::DefKw
+                | SyntaxKind::ExternKw
+                | SyntaxKind::StaticKw
+                | SyntaxKind::UnionKw
+                | SyntaxKind::TypedefKw
+                | SyntaxKind::NamespaceKw
+                | SyntaxKind::TemplateKw
+                | SyntaxKind::PackageKw
+                | SyntaxKind::FuncKw
+                | SyntaxKind::VarKw
+                | SyntaxKind::GoKw
+                | SyntaxKind::ChanKw
+                | SyntaxKind::DeferKw
+                | SyntaxKind::IncludeKw
+                | SyntaxKind::DefineKw
+                | SyntaxKind::PragmaKw
+                | SyntaxKind::SwitchKw
+                | SyntaxKind::CaseKw
+                | SyntaxKind::WhileKw
+                | SyntaxKind::ForKw
+                | SyntaxKind::DoKw
+                | SyntaxKind::BreakKw
+                | SyntaxKind::ContinueKw
+                | SyntaxKind::GotoKw
+                | SyntaxKind::SizeofKw
+                | SyntaxKind::InlineKw
+                | SyntaxKind::VirtualKw
+                | SyntaxKind::PublicKw
+                | SyntaxKind::PrivateKw
+                | SyntaxKind::ProtectedKw
+                | SyntaxKind::UnsafeKw
+                | SyntaxKind::CgoKw
+                | SyntaxKind::ImplementsKw
+                | SyntaxKind::OverrideKw
+                | SyntaxKind::AbstractKw
+                | SyntaxKind::FinalKw
+                | SyntaxKind::RecordKw
+                | SyntaxKind::MixinKw
+                | SyntaxKind::WithKw
+                | SyntaxKind::YieldKw
+                | SyntaxKind::AwaitKw
+                | SyntaxKind::TryKw
+                | SyntaxKind::CatchKw
+                | SyntaxKind::FinallyKw
+                | SyntaxKind::ThrowKw
+                | SyntaxKind::ValKw
+                | SyntaxKind::SynchronizedKw
+                | SyntaxKind::TransientKw
+                | SyntaxKind::VolatileKw
+                | SyntaxKind::ReadonlyKw
         )
     }
 
@@ -202,6 +352,25 @@ impl SyntaxKind {
                 | SyntaxKind::LtEq
                 | SyntaxKind::GtEq
                 | SyntaxKind::BangEq
+                | SyntaxKind::Hash
+                | SyntaxKind::Tilde
+                | SyntaxKind::Caret
+                | SyntaxKind::PlusEq
+                | SyntaxKind::MinusEq
+                | SyntaxKind::StarEq
+                | SyntaxKind::SlashEq
+                | SyntaxKind::PercentEq
+                | SyntaxKind::AmpAmp
+                | SyntaxKind::PipePipe
+                | SyntaxKind::LtLt
+                | SyntaxKind::GtGt
+                | SyntaxKind::ArrowStar
+                | SyntaxKind::DotStar
+                | SyntaxKind::Ellipsis
+                | SyntaxKind::At
+                | SyntaxKind::Dollar
+                | SyntaxKind::Question
+                | SyntaxKind::NullCoalesce
         )
     }
 
@@ -228,6 +397,33 @@ impl SyntaxKind {
                 | SyntaxKind::ExportStmt
                 | SyntaxKind::JsxElement
                 | SyntaxKind::ErrorNode
+                | SyntaxKind::NamespaceDecl
+                | SyntaxKind::TemplateDecl
+                | SyntaxKind::UnionDecl
+                | SyntaxKind::TypedefDecl
+                | SyntaxKind::ClassDecl
+                | SyntaxKind::MethodDecl
+                | SyntaxKind::IncludeDirective
+                | SyntaxKind::MacroDefine
+                | SyntaxKind::ExternBlock
+                | SyntaxKind::PackageDecl
+                | SyntaxKind::CgoDirective
+                | SyntaxKind::IfStmt
+                | SyntaxKind::LoopStmt
+                | SyntaxKind::SwitchStmt
+                | SyntaxKind::CaseArm
+                | SyntaxKind::ReturnStmt
+                | SyntaxKind::TypeDecl
+                | SyntaxKind::InterfaceDecl
+                | SyntaxKind::RecordDecl
+                | SyntaxKind::MixinDecl
+                | SyntaxKind::ConstructorDecl
+                | SyntaxKind::AnnotationNode
+                | SyntaxKind::DecoratorNode
+                | SyntaxKind::AttributeNode
+                | SyntaxKind::PropertyDecl
+                | SyntaxKind::WidgetDecl
+                | SyntaxKind::StateDecl
         )
     }
 }

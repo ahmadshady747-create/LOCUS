@@ -578,6 +578,9 @@ pub struct HybridSearchResult {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Language {
     Rust,
+    C,
+    Cpp,
+    Go,
     TypeScript,
     JavaScript,
     Tsx,
@@ -586,10 +589,18 @@ pub enum Language {
     Astro,
     Vue,
     Python,
+    Dart,
+    Php,
+    Java,
     Unknown,
 }
 
 impl Language {
+    /// Returns true if this language is a systems or high-performance language.
+    pub fn is_systems(&self) -> bool {
+        matches!(self, Language::Rust | Language::C | Language::Cpp | Language::Go)
+    }
+
     /// Returns true if this language is a frontend component or script language.
     pub fn is_frontend(&self) -> bool {
         matches!(
@@ -604,10 +615,32 @@ impl Language {
         )
     }
 
+    /// Returns true if this language is used for mobile/cross-platform application development.
+    pub fn is_mobile(&self) -> bool {
+        matches!(self, Language::Dart)
+    }
+
+    /// Returns true if this language is primarily used for enterprise/backend development.
+    pub fn is_enterprise(&self) -> bool {
+        matches!(
+            self,
+            Language::Java
+                | Language::Php
+                | Language::Rust
+                | Language::Python
+                | Language::Go
+                | Language::C
+                | Language::Cpp
+        )
+    }
+
     /// Infer language from file extension or language name.
     pub fn from_extension(ext: &str) -> Self {
         match ext.to_lowercase().trim() {
             "rs" | "rust" => Language::Rust,
+            "c" | "h" => Language::C,
+            "cpp" | "cxx" | "cc" | "hpp" | "hxx" | "hh" | "c++" => Language::Cpp,
+            "go" | "golang" => Language::Go,
             "tsx" | "react-tsx" => Language::Tsx,
             "jsx" | "react-jsx" => Language::Jsx,
             "svelte" => Language::Svelte,
@@ -616,6 +649,9 @@ impl Language {
             "ts" | "typescript" => Language::TypeScript,
             "js" | "javascript" | "mjs" | "cjs" => Language::JavaScript,
             "py" | "python" => Language::Python,
+            "dart" | "flutter" => Language::Dart,
+            "php" | "phtml" | "php3" | "php4" | "php5" | "php7" | "php8" => Language::Php,
+            "java" | "jav" => Language::Java,
             _ => Language::Unknown,
         }
     }
@@ -625,6 +661,9 @@ impl std::fmt::Display for Language {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Language::Rust => write!(f, "rust"),
+            Language::C => write!(f, "c"),
+            Language::Cpp => write!(f, "cpp"),
+            Language::Go => write!(f, "go"),
             Language::TypeScript => write!(f, "typescript"),
             Language::JavaScript => write!(f, "javascript"),
             Language::Tsx => write!(f, "tsx"),
@@ -633,6 +672,9 @@ impl std::fmt::Display for Language {
             Language::Astro => write!(f, "astro"),
             Language::Vue => write!(f, "vue"),
             Language::Python => write!(f, "python"),
+            Language::Dart => write!(f, "dart"),
+            Language::Php => write!(f, "php"),
+            Language::Java => write!(f, "java"),
             Language::Unknown => write!(f, "unknown"),
         }
     }
@@ -720,9 +762,15 @@ mod tests {
         assert_eq!(Language::from_extension("astro"), Language::Astro);
         assert_eq!(Language::from_extension("vue"), Language::Vue);
         assert_eq!(Language::from_extension("py"), Language::Python);
+        assert_eq!(Language::from_extension("dart"), Language::Dart);
+        assert_eq!(Language::from_extension("php"), Language::Php);
+        assert_eq!(Language::from_extension("java"), Language::Java);
         assert_eq!(Language::from_extension("csv"), Language::Unknown);
         assert!(Language::Tsx.is_frontend());
         assert!(!Language::Rust.is_frontend());
+        assert!(Language::Dart.is_mobile());
+        assert!(Language::Java.is_enterprise());
+        assert!(Language::Php.is_enterprise());
     }
 
     #[test]

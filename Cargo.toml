@@ -1,9 +1,9 @@
 [package]
 name = "locus-engine"
-version = "1.6.0"
+version = "2.0.0"
 edition = "2021"
 authors = ["Ahmed Shadi"]
-description = "Deterministic AST Verification, Cross-File Semantic Graph & Surgical Patching Engine in Pure Rust"
+description = "Deterministic AST Verification, Symbolic Range Analysis, Scoped Fact Stack & Surgical Patching Engine in Pure Rust"
 license = "BSL-1.1"
 repository = "https://github.com/ahmadshady747-create/LOCUS"
 homepage = "https://github.com/ahmadshady747-create/LOCUS"
@@ -20,6 +20,7 @@ thiserror = "1.0"
 [[bin]]
 name = "locus"
 path = "src/main.rs"
+
 
 [lib]
 name = "locus_engine"

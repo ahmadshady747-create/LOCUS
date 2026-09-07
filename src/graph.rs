@@ -607,6 +607,23 @@ impl SymbolGraph {
         None
     }
 
+    /// Resolves all matching symbol instances across all indexed files.
+    pub fn resolve_symbol_everywhere(&self, symbol: &str) -> Vec<ResolvedSymbol> {
+        self.nodes
+            .values()
+            .filter(|n| n.name == symbol)
+            .map(|node| self.build_resolved_symbol(node))
+            .collect()
+    }
+
+    /// Returns references to all SymbolNodes matching a given name.
+    pub fn get_nodes_by_name<'a>(&'a self, name: &str) -> Vec<&'a SymbolNode> {
+        self.nodes
+            .values()
+            .filter(|n| n.name == name)
+            .collect()
+    }
+
     fn build_resolved_symbol(&self, node: &SymbolNode) -> ResolvedSymbol {
         let doc_comment = if let Some(content) = self.file_contents.get(&node.file) {
             let before = &content[..node.byte_start];
