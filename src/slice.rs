@@ -46,7 +46,9 @@ impl ContextSlicer {
                 let reduction = if source.is_empty() {
                     0.0
                 } else {
-                    100.0 * (1.0 - (skeleton.len() as f64 / source.len() as f64)).max(0.0)
+                    let denom = (source.len() as f64).max(1.0);
+                    assert!(denom > 0.0);
+                    100.0 * (1.0 - (skeleton.len() as f64 / denom)).max(0.0)
                 };
 
                 return IntentSlice {
@@ -95,16 +97,18 @@ impl ContextSlicer {
         let included_symbols: Vec<String> = relevant_nodes.iter().map(|n| n.name.clone()).collect();
 
         // Build sliced code
+        let comment_prefix = if lang == Language::Python { "#" } else { "//" };
         let mut slice = String::with_capacity(source.len() / 2);
         slice.push_str(&format!(
-            "// --- LOCUS Intent Slice for: '{}' (Depth: {}) ---\n",
-            target_symbol, depth
+            "{} --- LOCUS Intent Slice for: '{}' (Depth: {}) ---\n",
+            comment_prefix, target_symbol, depth
         ));
 
         // Preserve header imports/directives
         for line in source.lines().take(15) {
             let trimmed = line.trim();
             if trimmed.starts_with("import ")
+                || trimmed.starts_with("from ")
                 || trimmed.starts_with("use ")
                 || trimmed.starts_with("\"use client\"")
             {
@@ -122,7 +126,7 @@ impl ContextSlicer {
                 slice.push_str("\n\n");
             } else {
                 // For dependencies, include only signature / interface skeleton
-                slice.push_str(&format!("// [Dependency Signature: {:?}]\n", node.kind));
+                slice.push_str(&format!("{} [Dependency Signature: {:?}]\n", comment_prefix, node.kind));
                 slice.push_str(&node.signature);
                 if lang == Language::Rust {
                     if !node.signature.ends_with(';') {
@@ -139,10 +143,10 @@ impl ContextSlicer {
         }
 
         let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
-        let original_len = source.len().max(1);
-        let slice_len = slice.len();
-        let token_reduction_percent =
-            100.0 * (1.0 - (slice_len as f64 / original_len as f64)).max(0.0);
+        let original_len = (source.len() as f64).max(1.0);
+        assert!(original_len > 0.0);
+        let slice_len = slice.len() as f64;
+        let token_reduction_percent = 100.0 * (1.0 - (slice_len / original_len)).max(0.0);
 
         IntentSlice {
             target_symbol: target_symbol.to_string(),
@@ -307,4 +311,30 @@ export function ActionButton({ label, onClick }: ButtonProps) {
         assert!(slice.sliced_code.contains("export function ActionButton"));
         assert!(slice.latency_ms < 50.0);
     }
+
+    #[test]
+    fn test_slice_from_source_python() {
+        let code = r#"import math
+
+def helper_unrelated(x: int) -> int:
+    return x * 100
+
+def target_func(a: int) -> int:
+    """This is the docstring of target func.
+    It specifies the algorithmic invariant.
+    """
+    return a + 1
+"#;
+        let slice = ContextSlicer::slice_from_source(code, "target_func", 1, Language::Python);
+        assert_eq!(slice.target_symbol, "target_func");
+        assert!(slice.sliced_code.contains("import math"));
+        assert!(slice.sliced_code.contains("def target_func(a: int) -> int:"));
+        assert!(slice.sliced_code.contains("This is the docstring of target func."));
+        assert!(slice.sliced_code.contains("It specifies the algorithmic invariant."));
+        // Surrounding unrelated function must be pruned!
+        assert!(!slice.sliced_code.contains("helper_unrelated"));
+        assert!(!slice.sliced_code.contains("return x * 100"));
+        assert!(slice.latency_ms < 50.0);
+    }
 }
+

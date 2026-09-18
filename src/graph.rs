@@ -19,8 +19,7 @@ use crate::types::{
 
 // Rust patterns
 static RE_RS_FN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^\s*(?:pub(?:\([^)]+\))?\s+)?(?:async\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)")
-        .unwrap()
+    Regex::new(r"(?m)^\s*(?:pub(?:\([^)]+\))?\s+)?(?:async\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
 });
 static RE_RS_STRUCT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?m)^\s*(?:pub(?:\([^)]+\))?\s+)?struct\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap()
@@ -41,10 +40,7 @@ static RE_RS_MOD: LazyLock<Regex> =
 
 // TypeScript / JavaScript / Frontend patterns
 static RE_TS_FN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r"(?m)^\s*(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)",
-    )
-    .unwrap()
+    Regex::new(r"(?m)^\s*(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)").unwrap()
 });
 static RE_TS_CONST_FN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?m)^\s*(?:export\s+)?(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*(?::\s*[^=]+)?\s*=\s*(?:async\s*)?(?:\([^)]*\)|[a-zA-Z_$][a-zA-Z0-9_$]*)\s*=>").unwrap()
@@ -66,12 +62,11 @@ static RE_TS_EXPORT_FROM: LazyLock<Regex> = LazyLock::new(|| {
 
 // Python patterns
 static RE_PY_DEF: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?m)^\s*(?:async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap());
+    LazyLock::new(|| Regex::new(r"(?m)^[ \t]*(?:async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap());
 static RE_PY_CLASS: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?m)^\s*class\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap());
+    LazyLock::new(|| Regex::new(r"(?m)^[ \t]*class\s+([a-zA-Z_][a-zA-Z0-9_]*)").unwrap());
 static RE_PY_IMPORT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?m)^\s*(?:from\s+([a-zA-Z0-9_.]+)\s+import\s+[^#\n]+|import\s+([a-zA-Z0-9_.]+))")
-        .unwrap()
+    Regex::new(r"(?m)^[ \t]*(?:from\s+([a-zA-Z0-9_.]+)\s+import\s+[^#\n]+|import\s+([a-zA-Z0-9_.]+))").unwrap()
 });
 
 // ---------------------------------------------------------------------------
@@ -266,6 +261,7 @@ impl SymbolGraph {
                         byte_start: start,
                         byte_end: end,
                         signature: sig,
+                        docstring: None,
                     });
                 }
             }
@@ -303,6 +299,7 @@ impl SymbolGraph {
                         byte_start: start,
                         byte_end: end,
                         signature: sig,
+                        docstring: None,
                     });
                 }
             }
@@ -325,11 +322,8 @@ impl SymbolGraph {
                     let name = name_match.as_str().to_string();
                     let start = full_match.start();
                     let end = Self::find_py_closing_boundary(content, start);
-                    let sig = if let Some(colon_idx) = content[start..end].find(':') {
-                        content[start..start + colon_idx].trim().to_string()
-                    } else {
-                        full_match.as_str().to_string()
-                    };
+                    let (sig, docstring) =
+                        Self::extract_py_signature_and_docstring(&content[start..end]);
                     let id = fnv1a_64(format!("{}:{}:{:?}", file, name, kind).as_bytes());
 
                     symbols.push(SymbolNode {
@@ -340,12 +334,75 @@ impl SymbolGraph {
                         byte_start: start,
                         byte_end: end,
                         signature: sig,
+                        docstring,
                     });
                 }
             }
         }
 
         symbols
+    }
+
+    fn extract_py_signature_and_docstring(slice: &str) -> (String, Option<String>) {
+        // Find closing colon of Python signature taking into account parentheses/brackets
+        let mut depth = 0;
+        let mut in_str = false;
+        let mut quote = '"';
+        let mut prev = '\0';
+        let mut sig_end_idx = None;
+
+        for (i, ch) in slice.char_indices() {
+            if (ch == '"' || ch == '\'') && prev != '\\' {
+                if in_str && ch == quote {
+                    in_str = false;
+                } else if !in_str {
+                    in_str = true;
+                    quote = ch;
+                }
+                prev = ch;
+                continue;
+            }
+            if in_str {
+                prev = ch;
+                continue;
+            }
+
+            if ch == '(' || ch == '[' || ch == '{' {
+                depth += 1;
+            } else if ch == ')' || ch == ']' || ch == '}' {
+                if depth > 0 {
+                    depth -= 1;
+                }
+            } else if ch == ':' && depth == 0 {
+                sig_end_idx = Some(i);
+                break;
+            }
+            prev = ch;
+        }
+
+        let colon_idx = sig_end_idx.unwrap_or_else(|| slice.find('\n').unwrap_or(slice.len()));
+        let sig = slice[..colon_idx].trim().to_string();
+
+        // Check if there is a docstring immediately following the colon
+        let after_colon = if colon_idx < slice.len() {
+            &slice[colon_idx + 1..]
+        } else {
+            ""
+        };
+        let mut docstring = None;
+
+        let trimmed_after = after_colon.trim_start();
+        if trimmed_after.starts_with("\"\"\"") {
+            if let Some(end_doc) = trimmed_after[3..].find("\"\"\"") {
+                docstring = Some(trimmed_after[3..3 + end_doc].to_string());
+            }
+        } else if trimmed_after.starts_with("'''") {
+            if let Some(end_doc) = trimmed_after[3..].find("'''") {
+                docstring = Some(trimmed_after[3..3 + end_doc].to_string());
+            }
+        }
+
+        (sig, docstring)
     }
 
     fn find_signature_end(slice: &str) -> usize {
@@ -474,19 +531,47 @@ impl SymbolGraph {
 
     fn find_py_closing_boundary(content: &str, start: usize) -> usize {
         let slice = &content[start..];
-        let mut lines = slice.lines();
+        let mut lines = slice.split('\n');
         let first_line = lines.next().unwrap_or("");
-        let indent = first_line.chars().take_while(|c| c.is_whitespace()).count();
+        let indent = first_line.chars().take_while(|c| *c == ' ' || *c == '\t').count();
 
-        let mut current_offset = first_line.len();
+        let mut current_offset = first_line.len() + 1;
+        let mut in_multiline_str = false;
+        let mut str_quote = "";
+
         for line in lines {
-            if line.trim().is_empty() || line.trim_start().starts_with('#') {
+            let line_clean = line.trim_end_matches('\r');
+            let trimmed = line_clean.trim();
+
+            if in_multiline_str {
+                if trimmed.contains(str_quote) {
+                    in_multiline_str = false;
+                }
                 current_offset += line.len() + 1;
                 continue;
             }
-            let line_indent = line.chars().take_while(|c| c.is_whitespace()).count();
+
+            if trimmed.starts_with("\"\"\"") && !trimmed[3..].contains("\"\"\"") {
+                in_multiline_str = true;
+                str_quote = "\"\"\"";
+                current_offset += line.len() + 1;
+                continue;
+            } else if trimmed.starts_with("'''") && !trimmed[3..].contains("'''") {
+                in_multiline_str = true;
+                str_quote = "'''";
+                current_offset += line.len() + 1;
+                continue;
+            }
+
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                current_offset += line.len() + 1;
+                continue;
+            }
+
+            let line_indent = line_clean.chars().take_while(|c| *c == ' ' || *c == '\t').count();
             if line_indent <= indent {
-                return start + current_offset;
+                let boundary = start + current_offset;
+                return boundary.min(content.len());
             }
             current_offset += line.len() + 1;
         }
@@ -905,6 +990,7 @@ impl SymbolGraph {
         if skel_len >= orig_len {
             0.0
         } else {
+            assert!(orig_len > 0);
             ((orig_len - skel_len) as f64 / orig_len as f64) * 100.0
         }
     }

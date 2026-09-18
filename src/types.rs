@@ -50,6 +50,9 @@ pub struct SymbolNode {
     pub byte_end: usize,
     /// First line of the declaration (signature only, no body).
     pub signature: String,
+    /// Preserved docstring if present (e.g. for algorithmic problem specifications).
+    #[serde(default)]
+    pub docstring: Option<String>,
 }
 
 /// The relationship type carried by a `SymbolEdge`.

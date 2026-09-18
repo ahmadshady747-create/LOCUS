@@ -1,0 +1,972 @@
+{
+  "total_tasks_evaluated": 32,
+  "total_dataset_size": 32,
+  "baseline_pass_rate": "0.0%",
+  "locus_pass_rate": "0.0%",
+  "average_token_savings": "44.6%",
+  "safety_violations_detected": "28/32 (87.5%)",
+  "self_healing_success_rate": "7.1%",
+  "tool_execution_audit": {
+    "index_graph": 32,
+    "resolve_symbol": 32,
+    "find_references": 32,
+    "hybrid_search": 32,
+    "simd_vector_search": 32,
+    "prepare_context": 32,
+    "extract_intent_slice": 32,
+    "skeletonize": 32,
+    "query_cst": 32,
+    "morph_ast": 32,
+    "synthesize_contract": 32,
+    "get_blast_radius": 32,
+    "acquire_symbol_lease": 32,
+    "renew_symbol_lease": 32,
+    "acquire_subtree_lease": 32,
+    "verify_occ_token": 32,
+    "begin_tx": 32,
+    "stage_tx": 32,
+    "check_safety": 88,
+    "semantic_analyze": 32,
+    "trace_taint_flow": 32,
+    "audit_taint_path": 32,
+    "verify_proof": 32,
+    "verify_contract": 32,
+    "auto_remediate": 32,
+    "patch_symbol": 32,
+    "verified_patch": 32,
+    "rollback_tx": 26,
+    "release_symbol_lease": 32,
+    "commit_tx": 6
+  },
+  "timestamp": "2026-09-17T22:30:10.278Z",
+  "results": [
+    {
+      "instance_id": "pallets__flask-4045",
+      "repo": "pallets/flask",
+      "target_file": "src/flask/blueprints.py",
+      "target_symbol": "__init__",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 120148,
+        "applied": true,
+        "passed": false,
+        "error": "py'.\ntests\\conftest.py:9: in <module>\n    import flask\nsrc\\flask\\__init__.py:10: in <module>\n    from .blueprints import Blueprint as Blueprint\nE     File \"D:\\LOCUS\\swe_bench_workspaces\\pallets__flask-4045\\src\\flask\\blueprints.py\", line 32\nE       ```python\nE       ^\nE   SyntaxError: invalid syntax\n; py'.\ntests\\conftest.py:9: in <module>\n    import flask\nsrc\\flask\\__init__.py:10: in <module>\n    from .blueprints import Blueprint as Blueprint\nE     File \"D:\\LOCUS\\swe_bench_workspaces\\pallets__flask-4045\\src\\flask\\blueprints.py\", line 32\nE       ```python\nE       ^\nE   SyntaxError: invalid syntax\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 544,
+        "total_prompt_tokens": 911,
+        "completion_tokens": 652,
+        "token_savings_percent": 73.5,
+        "initial_safety_passed": false,
+        "initial_violation": "Array index access without bounds guard at byte 98: `Optional[str]`",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 123071,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pallets__flask-4992",
+      "repo": "pallets/flask",
+      "target_file": "src/flask/config.py",
+      "target_symbol": "from_file",
+      "baseline": {
+        "prompt_tokens": 3514,
+        "completion_tokens": 370,
+        "backend": "gemini:gemini-flash-lite-latest",
+        "latency_ms": 3838,
+        "applied": true,
+        "passed": false,
+        "error": "eyword argument 'text'\n\ntests\\test_config.py:43: TypeError\n=========================== short test summary info ===========================\nFAILED tests/test_config.py::test_config_from_file_toml - TypeError: Config.f...\n============================== 1 failed in 0.25s ==============================\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 612,
+        "total_prompt_tokens": 818,
+        "completion_tokens": 428,
+        "token_savings_percent": 82.6,
+        "initial_safety_passed": false,
+        "initial_violation": "Unguarded division at byte 7607: `module/class` — denominator may be zero.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 88059,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pallets__flask-5063",
+      "repo": "pallets/flask",
+      "target_file": "src/flask/cli.py",
+      "target_symbol": "shell_command",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 134613,
+        "applied": false,
+        "passed": false,
+        "error": "Result okay>.output\n\ntests\\test_cli.py:495: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_cli.py::TestRoutes::test_subdomain - AssertionError: assert...\n============================== 1 failed in 0.91s ==============================\n; Result okay>.output\n\ntests\\test_cli.py:504: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_cli.py::TestRoutes::test_host - AssertionError: assert 'Hos...\n============================== 1 failed in 0.20s ==============================\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 1014,
+        "total_prompt_tokens": 1541,
+        "completion_tokens": 692,
+        "token_savings_percent": 50.5,
+        "initial_safety_passed": false,
+        "initial_violation": "Forbidden dynamic code evaluation: 'eval('",
+        "repair_turn_attempted": true,
+        "self_healed": true,
+        "total_latency_ms": 140665,
+        "applied": true,
+        "passed": false,
+        "error": "le>\n    from .app import Flask as Flask\nsrc\\flask\\app.py:33: in <module>\n    from . import cli\nE     File \"D:\\LOCUS\\swe_bench_workspaces\\pallets__flask-5063\\src\\flask\\cli.py\", line 943\nE       Here's the updated code:\nE           ^\nE   SyntaxError: unterminated string literal (detected at line 943)\n; le>\n    from .app import Flask as Flask\nsrc\\flask\\app.py:33: in <module>\n    from . import cli\nE     File \"D:\\LOCUS\\swe_bench_workspaces\\pallets__flask-5063\\src\\flask\\cli.py\", line 943\nE       Here's the updated code:\nE           ^\nE   SyntaxError: unterminated string literal (detected at line 943)\n"
+      }
+    },
+    {
+      "instance_id": "psf__requests-1963",
+      "repo": "psf/requests",
+      "target_file": "requests/sessions.py",
+      "target_symbol": "resolve_redirects",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 124007,
+        "applied": true,
+        "passed": false,
+        "error": "alid escape sequence '\\*'\n    :param \\**kw:\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR test_requests.py\n======================== 2 warnings, 1 error in 0.93s =========================\n; m _implementation import CertificateError, match_hostname\nE   ModuleNotFoundError: No module named '_implementation'\n=========================== short test summary info ===========================\nERROR test_requests.py\n============================== 1 error in 0.28s ===============================\n; m _implementation import CertificateError, match_hostname\nE   ModuleNotFoundError: No module named '_implementation'\n=========================== short test summary info ===========================\nERROR test_requests.py\n============================== 1 error in 0.26s ===============================\n; m _implementation import CertificateError, match_hostname\nE   ModuleNotFoundError: No module named '_implementation'\n=========================== short test summary info ===========================\nERROR test_requests.py\n============================== 1 error in 0.20s ===============================\n; m _implementation import CertificateError, match_hostname\nE   ModuleNotFoundError: No module named '_implementation'\n=========================== short test summary info ===========================\nERROR test_requests.py\n============================== 1 error in 0.28s ===============================\n; m _implementation import CertificateError, match_hostname\nE   ModuleNotFoundError: No module named '_implementation'\n=========================== short test summary info ===========================\nERROR test_requests.py\n============================== 1 error in 0.21s ===============================\n; m _implementation import CertificateError, match_hostname\nE   ModuleNotFoundError: No module named '_implementation'\n=========================== short test summary info ===========================\nERROR test_requests.py\n============================== 1 error in 0.21s ===============================\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 1260,
+        "total_prompt_tokens": 2220,
+        "completion_tokens": 591,
+        "token_savings_percent": 38.5,
+        "initial_safety_passed": false,
+        "initial_violation": "Unguarded division at byte 1491: `org/Protocols` — denominator may be zero.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 168283,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "psf__requests-2148",
+      "repo": "psf/requests",
+      "target_file": "requests/models.py",
+      "target_symbol": "generate",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 116,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 105643,
+        "applied": true,
+        "passed": false,
+        "error": "et.error()\nE       OSError\n\ntest_requests.py:729: OSError\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_iter_content_handles_socket_error\n============================== 1 failed in 0.32s ==============================\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 1295,
+        "total_prompt_tokens": 1585,
+        "completion_tokens": 383,
+        "token_savings_percent": 36.8,
+        "initial_safety_passed": false,
+        "initial_violation": "Array index access without bounds guard at byte 5283: `hooks[event]`",
+        "repair_turn_attempted": true,
+        "self_healed": true,
+        "total_latency_ms": 72981,
+        "applied": true,
+        "passed": false,
+        "error": "et.error()\nE       OSError\n\ntest_requests.py:729: OSError\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_iter_content_handles_socket_error\n============================== 1 failed in 0.29s ==============================\n"
+      }
+    },
+    {
+      "instance_id": "psf__requests-2317",
+      "repo": "psf/requests",
+      "target_file": "requests/sessions.py",
+      "target_symbol": "request",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 123864,
+        "applied": false,
+        "passed": false,
+        "error": "ined\n\nrequests\\packages\\urllib3\\util\\ssl_.py:83: NameError\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_requests_history_is_saved - N...\n============================== 1 failed in 0.48s ==============================\n; alse = <Response [400]>.ok\n\ntest_requests.py:1395: AssertionError\n=========================== short test summary info ===========================\nFAILED test_requests.py::TestTimeout::test_encoded_methods - assert False\n============================== 1 failed in 0.60s ==============================\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 1158,
+        "total_prompt_tokens": 1975,
+        "completion_tokens": 700,
+        "token_savings_percent": 43.5,
+        "initial_safety_passed": false,
+        "initial_violation": "Unguarded division at byte 4763: `org/html` — denominator may be zero.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 140974,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "psf__requests-2674",
+      "repo": "psf/requests",
+      "target_file": "requests/adapters.py",
+      "target_symbol": "send",
+      "baseline": {
+        "prompt_tokens": 3562,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 94358,
+        "applied": false,
+        "passed": false,
+        "error": "defined\n\nrequests\\packages\\urllib3\\util\\ssl_.py:170: NameError\n=========================== short test summary info ===========================\nFAILED test_requests.py::RequestsTestCase::test_mixed_case_scheme_acceptable\n============================== 1 failed in 1.98s ==============================\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 1209,
+        "total_prompt_tokens": 2170,
+        "completion_tokens": 700,
+        "token_savings_percent": 66.1,
+        "initial_safety_passed": false,
+        "initial_violation": "Source contains unbalanced braces, brackets, or parentheses.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 150903,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "psf__requests-3362",
+      "repo": "psf/requests",
+      "target_file": "requests/utils.py",
+      "target_symbol": "get_encoding_from_headers",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 75,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 72845,
+        "applied": true,
+        "passed": false,
+        "error": "s://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nFAILED tests/test_requests.py::TestRequests::test_response_decode_unicode - a...\n======================= 1 failed, 19 warnings in 0.97s ========================\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 572,
+        "total_prompt_tokens": 843,
+        "completion_tokens": 334,
+        "token_savings_percent": 72.1,
+        "initial_safety_passed": false,
+        "initial_violation": "Unguarded division at byte 3166: `org/issue20164` — denominator may be zero.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 36586,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "psf__requests-863",
+      "repo": "psf/requests",
+      "target_file": "requests/models.py",
+      "target_symbol": "path_url",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 116466,
+        "applied": true,
+        "passed": false,
+        "error": "\\*'\n    :param \\**connection_pool_kw:\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ===========================\nERROR tests/test_requests.py\n======================== 3 warnings, 1 error in 0.50s =========================\n; es\\psf__requests-863\\requests\\models.py\", line 439\nE       ```python\nE       ^\nE   SyntaxError: invalid syntax\n=========================== short test summary info ===========================\nERROR tests/test_requests.py\n============================== 1 error in 0.32s ===============================\n; es\\psf__requests-863\\requests\\models.py\", line 439\nE       ```python\nE       ^\nE   SyntaxError: invalid syntax\n=========================== short test summary info ===========================\nERROR tests/test_requests.py\n============================== 1 error in 0.37s ===============================\n; es\\psf__requests-863\\requests\\models.py\", line 439\nE       ```python\nE       ^\nE   SyntaxError: invalid syntax\n=========================== short test summary info ===========================\nERROR tests/test_requests.py\n============================== 1 error in 0.37s ===============================\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 567,
+        "total_prompt_tokens": 825,
+        "completion_tokens": 499,
+        "token_savings_percent": 72.3,
+        "initial_safety_passed": false,
+        "initial_violation": "Source contains unbalanced braces, brackets, or parentheses.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 77863,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pylint-dev__pylint-5859",
+      "repo": "pylint-dev/pylint",
+      "target_file": "pylint/checkers/misc.py",
+      "target_symbol": "open",
+      "baseline": {
+        "prompt_tokens": 2277,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 110750,
+        "applied": true,
+        "passed": false,
+        "error": "t.py:7: in <module>\n    from pylint import checkers\npylint\\checkers\\__init__.py:63: in <module>\n    from pylint.checkers.base_checker import BaseChecker, BaseTokenChecker\npylint\\checkers\\base_checker.py:24: in <module>\n    from astroid import nodes\nE   ModuleNotFoundError: No module named 'astroid'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 684,
+        "total_prompt_tokens": 918,
+        "completion_tokens": 358,
+        "token_savings_percent": 70,
+        "initial_safety_passed": false,
+        "initial_violation": "Unguarded division at byte 1427: `org/licenses` — denominator may be zero.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 90615,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pylint-dev__pylint-6506",
+      "repo": "pylint-dev/pylint",
+      "target_file": "pylint/config/config_initialization.py",
+      "target_symbol": "_config_initialization",
+      "baseline": {
+        "prompt_tokens": 1815,
+        "completion_tokens": 142,
+        "backend": "gemini:gemini-3.5-flash-lite",
+        "latency_ms": 4111,
+        "applied": true,
+        "passed": false,
+        "error": "conftest.py'.\ntests\\conftest.py:14: in <module>\n    from pylint import checkers\npylint\\checkers\\__init__.py:49: in <module>\n    from pylint.checkers.base_checker import (\npylint\\checkers\\base_checker.py:15: in <module>\n    from astroid import nodes\nE   ModuleNotFoundError: No module named 'astroid'\n; conftest.py'.\ntests\\conftest.py:14: in <module>\n    from pylint import checkers\npylint\\checkers\\__init__.py:49: in <module>\n    from pylint.checkers.base_checker import (\npylint\\checkers\\base_checker.py:15: in <module>\n    from astroid import nodes\nE   ModuleNotFoundError: No module named 'astroid'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 902,
+        "total_prompt_tokens": 1165,
+        "completion_tokens": 513,
+        "token_savings_percent": 50.3,
+        "initial_safety_passed": false,
+        "initial_violation": "Unguarded division at byte 42: `org/licenses` — denominator may be zero.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 117502,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pylint-dev__pylint-7080",
+      "repo": "pylint-dev/pylint",
+      "target_file": "pylint/lint/expand_modules.py",
+      "target_symbol": "_is_ignored_file",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 98,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 73764,
+        "applied": true,
+        "passed": false,
+        "error": "conftest.py'.\ntests\\conftest.py:14: in <module>\n    from pylint import checkers\npylint\\checkers\\__init__.py:48: in <module>\n    from pylint.checkers.base_checker import (\npylint\\checkers\\base_checker.py:15: in <module>\n    from astroid import nodes\nE   ModuleNotFoundError: No module named 'astroid'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 2050,
+        "total_prompt_tokens": 2280,
+        "completion_tokens": 522,
+        "token_savings_percent": 0,
+        "initial_safety_passed": false,
+        "initial_violation": "Source contains unbalanced braces, brackets, or parentheses.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 167667,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pylint-dev__pylint-7114",
+      "repo": "pylint-dev/pylint",
+      "target_file": "pylint/lint/expand_modules.py",
+      "target_symbol": "expand_modules",
+      "baseline": {
+        "prompt_tokens": 1926,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 98479,
+        "applied": true,
+        "passed": false,
+        "error": "conftest.py'.\ntests\\conftest.py:14: in <module>\n    from pylint import checkers\npylint\\checkers\\__init__.py:48: in <module>\n    from pylint.checkers.base_checker import (\npylint\\checkers\\base_checker.py:15: in <module>\n    from astroid import nodes\nE   ModuleNotFoundError: No module named 'astroid'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 898,
+        "total_prompt_tokens": 898,
+        "completion_tokens": 350,
+        "token_savings_percent": 53.4,
+        "initial_safety_passed": true,
+        "initial_violation": "Clean",
+        "repair_turn_attempted": false,
+        "self_healed": false,
+        "total_latency_ms": 93934,
+        "applied": false,
+        "passed": false,
+        "error": "conftest.py'.\ntests\\conftest.py:14: in <module>\n    from pylint import checkers\npylint\\checkers\\__init__.py:48: in <module>\n    from pylint.checkers.base_checker import (\npylint\\checkers\\base_checker.py:15: in <module>\n    from astroid import nodes\nE   ModuleNotFoundError: No module named 'astroid'\n"
+      }
+    },
+    {
+      "instance_id": "pylint-dev__pylint-7228",
+      "repo": "pylint-dev/pylint",
+      "target_file": "pylint/config/argument.py",
+      "target_symbol": "_py_version_transformer",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 264,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 93744,
+        "applied": true,
+        "passed": false,
+        "error": "conftest.py'.\ntests\\conftest.py:14: in <module>\n    from pylint import checkers\npylint\\checkers\\__init__.py:48: in <module>\n    from pylint.checkers.base_checker import (\npylint\\checkers\\base_checker.py:15: in <module>\n    from astroid import nodes\nE   ModuleNotFoundError: No module named 'astroid'\n; conftest.py'.\ntests\\conftest.py:14: in <module>\n    from pylint import checkers\npylint\\checkers\\__init__.py:48: in <module>\n    from pylint.checkers.base_checker import (\npylint\\checkers\\base_checker.py:15: in <module>\n    from astroid import nodes\nE   ModuleNotFoundError: No module named 'astroid'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 1793,
+        "total_prompt_tokens": 2057,
+        "completion_tokens": 342,
+        "token_savings_percent": 12.5,
+        "initial_safety_passed": false,
+        "initial_violation": "Unguarded division at byte 42: `org/licenses` — denominator may be zero.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 139166,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pylint-dev__pylint-7993",
+      "repo": "pylint-dev/pylint",
+      "target_file": "pylint/reporters/text.py",
+      "target_symbol": "on_set_current_module",
+      "baseline": {
+        "prompt_tokens": 3275,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 151644,
+        "applied": true,
+        "passed": false,
+        "error": "conftest.py'.\ntests\\conftest.py:14: in <module>\n    from pylint import checkers\npylint\\checkers\\__init__.py:48: in <module>\n    from pylint.checkers.base_checker import (\npylint\\checkers\\base_checker.py:15: in <module>\n    from astroid import nodes\nE   ModuleNotFoundError: No module named 'astroid'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 1137,
+        "total_prompt_tokens": 1521,
+        "completion_tokens": 547,
+        "token_savings_percent": 65.3,
+        "initial_safety_passed": false,
+        "initial_violation": "Unguarded division at byte 42: `org/licenses` — denominator may be zero.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 124773,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-11143",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/assertion/rewrite.py",
+      "target_symbol": "run",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 329,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 100080,
+        "applied": true,
+        "passed": false,
+        "error": "sertion\\__init__.py\", line 9, in <module>\n    from _pytest.assertion import rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-11143\\src\\_pytest\\assertion\\rewrite.py\", line 33, in <module>\n    from _pytest._version import version\nModuleNotFoundError: No module named '_pytest._version'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 2765,
+        "total_prompt_tokens": 3564,
+        "completion_tokens": 700,
+        "token_savings_percent": -34.9,
+        "initial_safety_passed": false,
+        "initial_violation": "Source contains unbalanced braces, brackets, or parentheses.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 232103,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-11148",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/pathlib.py",
+      "target_symbol": "import_path",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 107180,
+        "applied": true,
+        "passed": false,
+        "error": "File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-11148\\src\\_pytest\\_code\\code.py\", line 50, in <module>\n    from _pytest.pathlib import absolutepath\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-11148\\src\\_pytest\\pathlib.py\", line 486\n    ```python\n    ^\nSyntaxError: invalid syntax\n; File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-11148\\src\\_pytest\\_code\\code.py\", line 50, in <module>\n    from _pytest.pathlib import absolutepath\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-11148\\src\\_pytest\\pathlib.py\", line 486\n    ```python\n    ^\nSyntaxError: invalid syntax\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 1151,
+        "total_prompt_tokens": 1387,
+        "completion_tokens": 516,
+        "token_savings_percent": 43.9,
+        "initial_safety_passed": false,
+        "initial_violation": "Source contains unbalanced braces, brackets, or parentheses.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 134281,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5103",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/assertion/rewrite.py",
+      "target_symbol": "visit_Call_35",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 98229,
+        "applied": true,
+        "passed": false,
+        "error": "aces\\pytest-dev__pytest-5103\\src\\pytest.py\", line 7, in <module>\n    from _pytest.assertion import register_assert_rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5103\\src\\_pytest\\assertion\\__init__.py\", line 10, in <module>\n    import six\nModuleNotFoundError: No module named 'six'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 1173,
+        "total_prompt_tokens": 1173,
+        "completion_tokens": 312,
+        "token_savings_percent": 42.8,
+        "initial_safety_passed": true,
+        "initial_violation": "Clean",
+        "repair_turn_attempted": false,
+        "self_healed": false,
+        "total_latency_ms": 86547,
+        "applied": true,
+        "passed": false,
+        "error": "aces\\pytest-dev__pytest-5103\\src\\pytest.py\", line 7, in <module>\n    from _pytest.assertion import register_assert_rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5103\\src\\_pytest\\assertion\\__init__.py\", line 10, in <module>\n    import six\nModuleNotFoundError: No module named 'six'\n"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5221",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/python.py",
+      "target_symbol": "_showfixtures_main",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 334,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 97709,
+        "applied": true,
+        "passed": false,
+        "error": "aces\\pytest-dev__pytest-5221\\src\\pytest.py\", line 7, in <module>\n    from _pytest.assertion import register_assert_rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5221\\src\\_pytest\\assertion\\__init__.py\", line 10, in <module>\n    import six\nModuleNotFoundError: No module named 'six'\n; aces\\pytest-dev__pytest-5221\\src\\pytest.py\", line 7, in <module>\n    from _pytest.assertion import register_assert_rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5221\\src\\_pytest\\assertion\\__init__.py\", line 10, in <module>\n    import six\nModuleNotFoundError: No module named 'six'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 766,
+        "total_prompt_tokens": 1358,
+        "completion_tokens": 700,
+        "token_savings_percent": 62.6,
+        "initial_safety_passed": false,
+        "initial_violation": "Unguarded division at byte 16318: `setUpModule/tearDownModule` — denominator may be zero.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 133033,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5227",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/logging.py",
+      "target_symbol": "target_symbol",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 99029,
+        "applied": false,
+        "passed": false,
+        "error": "aces\\pytest-dev__pytest-5227\\src\\pytest.py\", line 7, in <module>\n    from _pytest.assertion import register_assert_rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5227\\src\\_pytest\\assertion\\__init__.py\", line 10, in <module>\n    import six\nModuleNotFoundError: No module named 'six'\n; aces\\pytest-dev__pytest-5227\\src\\pytest.py\", line 7, in <module>\n    from _pytest.assertion import register_assert_rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5227\\src\\_pytest\\assertion\\__init__.py\", line 10, in <module>\n    import six\nModuleNotFoundError: No module named 'six'\n; aces\\pytest-dev__pytest-5227\\src\\pytest.py\", line 7, in <module>\n    from _pytest.assertion import register_assert_rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5227\\src\\_pytest\\assertion\\__init__.py\", line 10, in <module>\n    import six\nModuleNotFoundError: No module named 'six'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 1872,
+        "total_prompt_tokens": 1872,
+        "completion_tokens": 350,
+        "token_savings_percent": 8.7,
+        "initial_safety_passed": true,
+        "initial_violation": "Clean",
+        "repair_turn_attempted": false,
+        "self_healed": false,
+        "total_latency_ms": 114346,
+        "applied": true,
+        "passed": false,
+        "error": "aces\\pytest-dev__pytest-5227\\src\\pytest.py\", line 7, in <module>\n    from _pytest.assertion import register_assert_rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5227\\src\\_pytest\\assertion\\__init__.py\", line 10, in <module>\n    import six\nModuleNotFoundError: No module named 'six'\n; aces\\pytest-dev__pytest-5227\\src\\pytest.py\", line 7, in <module>\n    from _pytest.assertion import register_assert_rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5227\\src\\_pytest\\assertion\\__init__.py\", line 10, in <module>\n    import six\nModuleNotFoundError: No module named 'six'\n; aces\\pytest-dev__pytest-5227\\src\\pytest.py\", line 7, in <module>\n    from _pytest.assertion import register_assert_rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5227\\src\\_pytest\\assertion\\__init__.py\", line 10, in <module>\n    import six\nModuleNotFoundError: No module named 'six'\n"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5413",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/_code/code.py",
+      "target_symbol": "getrepr",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 105011,
+        "applied": false,
+        "passed": false,
+        "error": "es\\pytest-dev__pytest-5413\\src\\_pytest\\assertion\\__init__.py\", line 6, in <module>\n    from _pytest.assertion import rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5413\\src\\_pytest\\assertion\\rewrite.py\", line 4, in <module>\n    import imp\nModuleNotFoundError: No module named 'imp'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 1431,
+        "total_prompt_tokens": 1676,
+        "completion_tokens": 658,
+        "token_savings_percent": 30.2,
+        "initial_safety_passed": false,
+        "initial_violation": "Source contains unbalanced braces, brackets, or parentheses.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 149806,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5495",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/assertion/util.py",
+      "target_symbol": "_compare_eq_iterable",
+      "baseline": {
+        "prompt_tokens": 3303,
+        "completion_tokens": 115,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 117792,
+        "applied": true,
+        "passed": false,
+        "error": "st-5495\\src\\_pytest\\assertion\\__init__.py\", line 6, in <module>\n    from _pytest.assertion import rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5495\\src\\_pytest\\assertion\\rewrite.py\", line 13, in <module>\n    import atomicwrites\nModuleNotFoundError: No module named 'atomicwrites'\n; st-5495\\src\\_pytest\\assertion\\__init__.py\", line 6, in <module>\n    from _pytest.assertion import rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5495\\src\\_pytest\\assertion\\rewrite.py\", line 13, in <module>\n    import atomicwrites\nModuleNotFoundError: No module named 'atomicwrites'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 686,
+        "total_prompt_tokens": 977,
+        "completion_tokens": 397,
+        "token_savings_percent": 79.2,
+        "initial_safety_passed": false,
+        "initial_violation": "Source contains unbalanced braces, brackets, or parentheses.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 54323,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5692",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/junitxml.py",
+      "target_symbol": "pytest_sessionfinish",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 101191,
+        "applied": true,
+        "passed": false,
+        "error": "st-5692\\src\\_pytest\\assertion\\__init__.py\", line 6, in <module>\n    from _pytest.assertion import rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5692\\src\\_pytest\\assertion\\rewrite.py\", line 20, in <module>\n    import atomicwrites\nModuleNotFoundError: No module named 'atomicwrites'\n; st-5692\\src\\_pytest\\assertion\\__init__.py\", line 6, in <module>\n    from _pytest.assertion import rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5692\\src\\_pytest\\assertion\\rewrite.py\", line 20, in <module>\n    import atomicwrites\nModuleNotFoundError: No module named 'atomicwrites'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 905,
+        "total_prompt_tokens": 905,
+        "completion_tokens": 350,
+        "token_savings_percent": 55.9,
+        "initial_safety_passed": true,
+        "initial_violation": "Clean",
+        "repair_turn_attempted": false,
+        "self_healed": false,
+        "total_latency_ms": 81743,
+        "applied": true,
+        "passed": false,
+        "error": "st-5692\\src\\_pytest\\assertion\\__init__.py\", line 6, in <module>\n    from _pytest.assertion import rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5692\\src\\_pytest\\assertion\\rewrite.py\", line 20, in <module>\n    import atomicwrites\nModuleNotFoundError: No module named 'atomicwrites'\n; st-5692\\src\\_pytest\\assertion\\__init__.py\", line 6, in <module>\n    from _pytest.assertion import rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-5692\\src\\_pytest\\assertion\\rewrite.py\", line 20, in <module>\n    import atomicwrites\nModuleNotFoundError: No module named 'atomicwrites'\n"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-6116",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/main.py",
+      "target_symbol": "pytest_addoption",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 100270,
+        "applied": true,
+        "passed": false,
+        "error": "st-6116\\src\\_pytest\\assertion\\__init__.py\", line 7, in <module>\n    from _pytest.assertion import rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-6116\\src\\_pytest\\assertion\\rewrite.py\", line 23, in <module>\n    import atomicwrites\nModuleNotFoundError: No module named 'atomicwrites'\n; st-6116\\src\\_pytest\\assertion\\__init__.py\", line 7, in <module>\n    from _pytest.assertion import rewrite\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-6116\\src\\_pytest\\assertion\\rewrite.py\", line 23, in <module>\n    import atomicwrites\nModuleNotFoundError: No module named 'atomicwrites'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 1457,
+        "total_prompt_tokens": 2561,
+        "completion_tokens": 700,
+        "token_savings_percent": 28.9,
+        "initial_safety_passed": false,
+        "initial_violation": "Source contains unbalanced braces, brackets, or parentheses.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 177843,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7168",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/_io/saferepr.py",
+      "target_symbol": "_format_repr_exception",
+      "baseline": {
+        "prompt_tokens": 3304,
+        "completion_tokens": 111,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 118721,
+        "applied": true,
+        "passed": false,
+        "error": "v__pytest-7168\\src\\_pytest\\deprecated.py\", line 12, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-7168\\src\\_pytest\\warning_types.py\", line 5, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n; v__pytest-7168\\src\\_pytest\\deprecated.py\", line 12, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-7168\\src\\_pytest\\warning_types.py\", line 5, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n; v__pytest-7168\\src\\_pytest\\deprecated.py\", line 12, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-7168\\src\\_pytest\\warning_types.py\", line 5, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n; v__pytest-7168\\src\\_pytest\\deprecated.py\", line 12, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-7168\\src\\_pytest\\warning_types.py\", line 5, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n; v__pytest-7168\\src\\_pytest\\deprecated.py\", line 12, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-7168\\src\\_pytest\\warning_types.py\", line 5, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n; v__pytest-7168\\src\\_pytest\\deprecated.py\", line 12, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-7168\\src\\_pytest\\warning_types.py\", line 5, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n; v__pytest-7168\\src\\_pytest\\deprecated.py\", line 12, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-7168\\src\\_pytest\\warning_types.py\", line 5, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n; v__pytest-7168\\src\\_pytest\\deprecated.py\", line 12, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-7168\\src\\_pytest\\warning_types.py\", line 5, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n; v__pytest-7168\\src\\_pytest\\deprecated.py\", line 12, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-7168\\src\\_pytest\\warning_types.py\", line 5, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n; v__pytest-7168\\src\\_pytest\\deprecated.py\", line 12, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-7168\\src\\_pytest\\warning_types.py\", line 5, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n; v__pytest-7168\\src\\_pytest\\deprecated.py\", line 12, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-7168\\src\\_pytest\\warning_types.py\", line 5, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 2756,
+        "total_prompt_tokens": 3019,
+        "completion_tokens": 458,
+        "token_savings_percent": 16.6,
+        "initial_safety_passed": false,
+        "initial_violation": "Source contains unbalanced braces, brackets, or parentheses.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 108375,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7220",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/nodes.py",
+      "target_symbol": "_repr_failure_py",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 80,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 68618,
+        "applied": true,
+        "passed": false,
+        "error": "v__pytest-7220\\src\\_pytest\\deprecated.py\", line 12, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-7220\\src\\_pytest\\warning_types.py\", line 5, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 1013,
+        "total_prompt_tokens": 1257,
+        "completion_tokens": 700,
+        "token_savings_percent": 50.6,
+        "initial_safety_passed": false,
+        "initial_violation": "Unguarded division at byte 4308: `keywords/markers` — denominator may be zero.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 145192,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7373",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/mark/evaluate.py",
+      "target_symbol": "_istrue",
+      "baseline": {
+        "prompt_tokens": 1352,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 82156,
+        "applied": true,
+        "passed": false,
+        "error": "v__pytest-7373\\src\\_pytest\\deprecated.py\", line 12, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-7373\\src\\_pytest\\warning_types.py\", line 5, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 870,
+        "total_prompt_tokens": 1392,
+        "completion_tokens": 846,
+        "token_savings_percent": 35.7,
+        "initial_safety_passed": false,
+        "initial_violation": "Array index access without bounds guard at byte 600: `evalcache[expr]`",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 93370,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7432",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/skipping.py",
+      "target_symbol": "pytest_runtest_makereport",
+      "baseline": {
+        "prompt_tokens": 3296,
+        "completion_tokens": 18,
+        "backend": "gemini:gemini-3.6-flash",
+        "latency_ms": 5731,
+        "applied": false,
+        "passed": false,
+        "error": "v__pytest-7432\\src\\_pytest\\deprecated.py\", line 12, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-7432\\src\\_pytest\\warning_types.py\", line 5, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 1011,
+        "total_prompt_tokens": 1676,
+        "completion_tokens": 700,
+        "token_savings_percent": 69.3,
+        "initial_safety_passed": false,
+        "initial_violation": "Array index access without bounds guard at byte 5304: `Optional[Skip]`",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 162958,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7490",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/skipping.py",
+      "target_symbol": "evaluate_xfail_marks",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 102648,
+        "applied": true,
+        "passed": false,
+        "error": "v__pytest-7490\\src\\_pytest\\deprecated.py\", line 12, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-7490\\src\\_pytest\\warning_types.py\", line 5, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n; v__pytest-7490\\src\\_pytest\\deprecated.py\", line 12, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-7490\\src\\_pytest\\warning_types.py\", line 5, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 2050,
+        "total_prompt_tokens": 2470,
+        "completion_tokens": 561,
+        "token_savings_percent": 0,
+        "initial_safety_passed": false,
+        "initial_violation": "Array index access without bounds guard at byte 5319: `Optional[Skip]`",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 165312,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-8365",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/tmpdir.py",
+      "target_symbol": "getbasetemp",
+      "baseline": {
+        "prompt_tokens": 2526,
+        "completion_tokens": 350,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 122079,
+        "applied": true,
+        "passed": false,
+        "error": "v__pytest-8365\\src\\_pytest\\deprecated.py\", line 13, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-8365\\src\\_pytest\\warning_types.py\", line 6, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 867,
+        "total_prompt_tokens": 1129,
+        "completion_tokens": 697,
+        "token_savings_percent": 65.7,
+        "initial_safety_passed": false,
+        "initial_violation": "Source contains unbalanced braces, brackets, or parentheses.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 118588,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-8906",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/python.py",
+      "target_symbol": "_importtestmodule",
+      "baseline": {
+        "prompt_tokens": 2050,
+        "completion_tokens": 74,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 69118,
+        "applied": true,
+        "passed": false,
+        "error": "v__pytest-8906\\src\\_pytest\\deprecated.py\", line 13, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-8906\\src\\_pytest\\warning_types.py\", line 6, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 1273,
+        "total_prompt_tokens": 1929,
+        "completion_tokens": 650,
+        "token_savings_percent": 37.9,
+        "initial_safety_passed": false,
+        "initial_violation": "Unguarded division at byte 10748: `assert/ignore` — denominator may be zero.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 152331,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-9359",
+      "repo": "pytest-dev/pytest",
+      "target_file": "src/_pytest/_code/source.py",
+      "target_symbol": "get_statement_startend2",
+      "baseline": {
+        "prompt_tokens": 2653,
+        "completion_tokens": 349,
+        "backend": "ollama:qwen2.5:1.5b",
+        "latency_ms": 117870,
+        "applied": true,
+        "passed": false,
+        "error": "v__pytest-9359\\src\\_pytest\\deprecated.py\", line 13, in <module>\n    from _pytest.warning_types import PytestDeprecationWarning\n  File \"D:\\LOCUS\\swe_bench_workspaces\\pytest-dev__pytest-9359\\src\\_pytest\\warning_types.py\", line 6, in <module>\n    import attr\nModuleNotFoundError: No module named 'attr'\n"
+      },
+      "locus": {
+        "initial_prompt_tokens": 1434,
+        "total_prompt_tokens": 1864,
+        "completion_tokens": 649,
+        "token_savings_percent": 45.9,
+        "initial_safety_passed": false,
+        "initial_violation": "Unguarded division at byte 1311: `com/python` — denominator may be zero.",
+        "repair_turn_attempted": true,
+        "self_healed": false,
+        "total_latency_ms": 126178,
+        "applied": false,
+        "passed": false,
+        "error": "Safety check rejected"
+      }
+    }
+  ]
+}

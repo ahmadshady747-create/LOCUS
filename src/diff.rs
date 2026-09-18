@@ -80,7 +80,16 @@ impl AstDiffEngine {
                 }
                 Language::Python => {
                     skeleton.push_str(&node.signature);
-                    skeleton.push_str(":\n    ...\n");
+                    if !node.signature.ends_with(':') {
+                        skeleton.push(':');
+                    }
+                    skeleton.push('\n');
+                    if let Some(doc) = &node.docstring {
+                        skeleton.push_str("    \"\"\"");
+                        skeleton.push_str(doc.trim());
+                        skeleton.push_str("\n    \"\"\"\n");
+                    }
+                    skeleton.push_str("    ...\n\n");
                 }
                 _ => {
                     skeleton.push_str(&node.signature);
@@ -275,4 +284,25 @@ export function Form() {
         assert!(patched.contains("await api.post('/data');"));
         assert!(patched.contains("<form onSubmit={handleSubmit}>"));
     }
+
+    #[test]
+    fn test_skeletonize_python_preserves_docstring() {
+        let py_code = r#"
+def solve_algorithm(data: list[int], threshold: float) -> bool:
+    """Check if numbers satisfy the dynamic constraint.
+    >>> solve_algorithm([1, 2, 3], 2.0)
+    True
+    """
+    total = sum(data)
+    return total > threshold
+"#;
+        let skeleton = AstDiffEngine::skeletonize(py_code, Language::Python);
+        println!("SKELETON RESULT:\n{}", skeleton);
+        assert!(skeleton.contains("def solve_algorithm(data: list[int], threshold: float) -> bool:"));
+        assert!(skeleton.contains("Check if numbers satisfy the dynamic constraint."));
+        assert!(skeleton.contains(">>> solve_algorithm([1, 2, 3], 2.0)"));
+        assert!(skeleton.contains("..."));
+        assert!(!skeleton.contains("total = sum(data)"));
+    }
 }
+
