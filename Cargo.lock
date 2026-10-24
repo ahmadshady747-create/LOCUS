@@ -162,7 +162,7 @@ dependencies = [
 
 [[package]]
 name = "locus-engine"
-version = "2.5.0"
+version = "2.5.1"
 dependencies = [
  "chrono",
  "parking_lot",

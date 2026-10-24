@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [v2.5.1] — 2026-10-24
+
+### 🛠️ Overview & Highlights ("Release-asset fix")
+**LOCUS Engine v2.5.1** fixes one release-packaging defect from v2.5.0
+and changes nothing else. There are no engine behavior changes in
+this release: the safety rules, the MCP tool suite (33 tools), and
+the CLI behavior are identical to v2.5.0.
+
+1. **Per-target binary names fix the v2.5.0 asset collision:** the
+   v2.5.0 release workflow uploaded a file named `locus` from both
+   the Linux and the macOS jobs, so each overwrote the previous one
+   and the downloadable `locus` asset ended up being the macOS
+   arm64 binary. The v2.5.1 workflow renames each binary to include
+   its target triple before upload, so every platform asset has a
+   unique name: `locus-x86_64-unknown-linux-gnu`,
+   `locus-x86_64-apple-darwin`, `locus-aarch64-apple-darwin`, and
+   `locus-x86_64-pc-windows-msvc.exe`. No generic `locus` asset is
+   published anymore. Each per-target checksum file
+   (`SHA256SUMS-<target>.txt`) is computed over the renamed file
+   it describes.
+
+### ⚠️ Observable changes (action required for downloaders)
+- **v2.5.0's generic `locus` asset is unreliable:** it is the macOS
+  arm64 binary, not a Linux binary, and must not be used as a
+  Linux download. Users should download the v2.5.1 per-target
+  assets instead. The v2.5.0 release and tag are left as-is for
+  history; v2.5.1 supersedes them.
+- **Version bump only:** `Cargo.toml` 2.5.0 → 2.5.1. The CLI
+  banner, `--version`, and MCP `serverInfo.version` derive from
+  `Cargo.toml` and therefore report 2.5.1.
+
 ## [v2.5.0] — 2026-10-24
 
 ### 🌟 Overview & Highlights ("Trust-Repair Release")

@@ -4,7 +4,7 @@
 > **Deterministic AST Safety Firewall, Abstract Interpretation & Symbolic Range Analysis, Canonical Loop Bounds Prover, Lossless CST Green-Red Tree, 32 Enterprise Invariants, Inter-Procedural SSA Taint Engine, SIMD Hardware-Accelerated Vector Search, Multi-Agent Swarm OCC & 33-Tool Model Context Protocol Server in 100% Safe Rust.**
 
 <p align="left">
-  <a href="RELEASES.md"><img src="https://img.shields.io/badge/Release-v2.5.0%20(GA)-blue.svg" alt="Release" /></a>
+  <a href="RELEASES.md"><img src="https://img.shields.io/badge/Release-v2.5.1%20(GA)-blue.svg" alt="Release" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSL%201.1-blue.svg" alt="License" /></a>
   <a href="src/mcp.rs"><img src="https://img.shields.io/badge/Protocol-MCP%20JSON--RPC%202.0-blueviolet.svg" alt="Protocol" /></a>
   <a href="src/"><img src="https://img.shields.io/badge/Memory%20Safety-Zero%20Unsafe-success.svg" alt="Memory Safety" /></a>

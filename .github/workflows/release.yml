@@ -13,15 +13,19 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             artifact_name: locus
+            upload_name: locus-x86_64-unknown-linux-gnu
           - target: x86_64-apple-darwin
             os: macos-13
             artifact_name: locus
+            upload_name: locus-x86_64-apple-darwin
           - target: aarch64-apple-darwin
             os: macos-latest
             artifact_name: locus
+            upload_name: locus-aarch64-apple-darwin
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             artifact_name: locus.exe
+            upload_name: locus-x86_64-pc-windows-msvc.exe
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -31,13 +35,17 @@ jobs:
           targets: ${{ matrix.target }}
       - name: Build Binary
         run: cargo build --release --target ${{ matrix.target }}
+      - name: Rename Binary for Release
+        shell: bash
+        run: cp "target/${{ matrix.target }}/release/${{ matrix.artifact_name }}" "target/${{ matrix.target }}/release/${{ matrix.upload_name }}"
       - name: Generate SHA256 checksum
-        run: sha256sum target/${{ matrix.target }}/release/${{ matrix.artifact_name }} > SHA256SUMS-${{ matrix.target }}.txt
+        shell: bash
+        run: cd "target/${{ matrix.target }}/release" && sha256sum "${{ matrix.upload_name }}" > "$GITHUB_WORKSPACE/SHA256SUMS-${{ matrix.target }}.txt"
       - name: Upload Binary to Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+            target/${{ matrix.target }}/release/${{ matrix.upload_name }}
             SHA256SUMS-${{ matrix.target }}.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
