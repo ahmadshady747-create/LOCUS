@@ -1,7 +1,8 @@
 //! Deterministic Log Replay & State Reconstruction Engine.
 //!
 //! Applies committed transactions to master workspace files, guarantees atomic rollback
-//! of incomplete transactions, synchronizes checkpoints, and produces recovery receipts in sub-1.0ms.
+//! of incomplete transactions, synchronizes checkpoints, and produces recovery receipts
+//! within the 5ms recovery-time objective for 100 transactions.
 
 #![forbid(unsafe_code)]
 
