@@ -64,7 +64,7 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                     },
                     "serverInfo": {
                         "name": "locus-engine",
-                        "version": "1.6.0"
+                        "version": env!("CARGO_PKG_VERSION")
                     }
                 }
             });
@@ -98,7 +98,7 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                 "tools": [
                     {
                         "name": "check_safety",
-                        "description": "Deterministic AST invariant safety check (<0.05ms) catching delimiter balance, async mutex across await, div-by-zero, array bounds, unsafe unwraps, ReDoS, JSX tag mismatches, conditional hooks, and client secret leaks.",
+                        "description": "Deterministic AST invariant safety check (<0.05ms) catching delimiter balance, async mutex across await, div-by-zero, array bounds, unsafe unwraps, ReDoS, JSX tag mismatches, conditional hooks, and client secret leaks. First-failure gate: reports the first violation only; use check_safety_all for the full report.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -2189,7 +2189,7 @@ mod tests {
         let parsed: Value = serde_json::from_str(&resp).unwrap();
         assert_eq!(parsed["id"], 1);
         assert_eq!(parsed["result"]["serverInfo"]["name"], "locus-engine");
-        assert_eq!(parsed["result"]["serverInfo"]["version"], "1.6.0");
+        assert_eq!(parsed["result"]["serverInfo"]["version"], env!("CARGO_PKG_VERSION"));
     }
 
     #[test]

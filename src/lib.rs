@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! locus-engine: Deterministic AST Verification, Semantic Symbol Graph & Surgical Patching Engine.
 
 pub mod cache;

@@ -4,15 +4,15 @@ description: >-
   High-throughput compound MCP pipelines, deterministic 32-pass AST safety verification, lossless CST Green-Red Tree parsing,
   multi-agent swarm OCC and hierarchical subtree leases, inter-procedural SSA taint tracking, AVX2/NEON SIMD hardware-accelerated search,
   formal mathematical proofs (WP calculus), dynamic proof claim evaluation with FIPS 180-4 SHA-256 certificates, multi-file ACID workspace transactions,
-  surgical symbol patching, and blast-radius impact analyzer powered by native locus-engine (v2.0.0 - 30 Native Sovereign MCP Tools).
+  surgical symbol patching, and blast-radius impact analyzer powered by native locus-engine (v2.5.0 - 33 Native Sovereign MCP Tools).
   Activate this skill when generating, reviewing, patching, or analyzing code in Rust, TypeScript, TSX, JSX, Svelte, Astro, Vue, or Python.
 ---
 
-# LOCUS Engine Skill Guide (v2.0.0)
+# LOCUS Engine Skill Guide (v2.5.0)
 
-Use this skill to leverage the native locus MCP server (30 Sovereign Tools) and CLI for sub-millisecond invariant safety verification, compound context preparation, blast-radius impact analysis, multi-agent concurrency leases, cross-file taint analysis, in-memory HNSW search, formal Dijkstra WP calculus proof cards, dynamic AST proof certificate minting, and ACID workspace transactions across Backend (Rust, Python) and Frontend (TSX, JSX, Svelte, Astro, Vue) ecosystems.
+Use this skill to leverage the native locus MCP server (33 Sovereign Tools) and CLI for sub-millisecond invariant safety verification, compound context preparation, blast-radius impact analysis, multi-agent concurrency leases, cross-file taint analysis, in-memory HNSW search, formal Dijkstra WP calculus proof cards, dynamic AST proof certificate minting, and ACID workspace transactions across Backend (Rust, Python) and Frontend (TSX, JSX, Svelte, Astro, Vue) ecosystems.
 
-## 30 Sovereign Tools Overview (v2.0.0):
+## 33 Sovereign Tools Overview (v2.5.0):
 1. `check_safety` (32 AST Invariant Passes)
 2. `skeletonize` (High-density AST skeleton)
 3. `patch_symbol` (Surgical AST patch)
@@ -43,3 +43,6 @@ Use this skill to leverage the native locus MCP server (30 Sovereign Tools) and 
 28. `simd_vector_search` (AVX2/NEON 256-bit SIMD hardware dot-product acceleration)
 29. `semantic_analyze` (Formal Dijkstra WP calculus, proof cards, counterexamples & OASIS SARIF v2.1.0)
 30. `verify_proof` (Dynamic AST & semantic proof verification, fail-fast evaluation & LOCUS-PROOF-v2 cryptographic certificate minting)
+31. `explain_violation` (Structured violation report: rule, line/column, snippet, and fix pattern)
+32. `diff_check` (Changed-region-aware verification: violation in changed code vs pre-existing)
+33. `check_safety_all` (All 32 invariant rules, every violation with a count)

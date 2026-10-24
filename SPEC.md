@@ -1,4 +1,6 @@
-﻿# locus-engine Formal Technical Specification
+﻿> **NOTE (2026-10-24): This specification is archived at v1.6.0. For current behavior (v2.5.0, 33 MCP tools, 32 invariant rules), see README.md and RELEASES.md.**
+
+# locus-engine Formal Technical Specification
 
 **Version:** 1.6.0 (Sovereign Synthesis & Distributed Swarms)  
 **License:** Business Source License 1.1 (BSL 1.1)  

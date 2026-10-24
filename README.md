@@ -4,9 +4,8 @@
 > **Deterministic AST Safety Firewall, Abstract Interpretation & Symbolic Range Analysis, Canonical Loop Bounds Prover, Lossless CST Green-Red Tree, 32 Enterprise Invariants, Inter-Procedural SSA Taint Engine, SIMD Hardware-Accelerated Vector Search, Multi-Agent Swarm OCC & 33-Tool Model Context Protocol Server in 100% Safe Rust.**
 
 <p align="left">
-  <a href="RELEASES.md"><img src="https://img.shields.io/badge/Release-v2.0.0%20(GA)-blue.svg" alt="Release" /></a>
+  <a href="RELEASES.md"><img src="https://img.shields.io/badge/Release-v2.5.0%20(GA)-blue.svg" alt="Release" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSL%201.1-blue.svg" alt="License" /></a>
-  <a href="Cargo.toml"><img src="https://img.shields.io/badge/Tests-246%2F246%20Passing-brightgreen.svg" alt="Tests" /></a>
   <a href="src/mcp.rs"><img src="https://img.shields.io/badge/Protocol-MCP%20JSON--RPC%202.0-blueviolet.svg" alt="Protocol" /></a>
   <a href="src/"><img src="https://img.shields.io/badge/Memory%20Safety-Zero%20Unsafe-success.svg" alt="Memory Safety" /></a>
   <a href="src/guard/interval.rs"><img src="https://img.shields.io/badge/Abstract%20Interpretation-Range%20Analysis-purple.svg" alt="Interval Analysis" /></a>
@@ -82,7 +81,7 @@ Modern autonomous AI coding agents (Claude Code, Cursor, Copilot, Antigravity, D
 - In-memory shadow buffers and two-phase commits guaranteeing zero disk corruption and zero workspace drift.
 
 ### 11. 🔌 Model Context Protocol Server (33 Sovereign Native Tools)
-- Comprehensive MCP JSON-RPC 2.0 stdio server providing 33 specialized tools for modern agentic workflows (including `verify_proof`, `audit_taint_path`, `semantic_analyze`, `prepare_context`, and `verified_patch`), plus three agentic loop tools: `explain_violation` (structured violation with line/column/snippet and fix pattern), `diff_check` (changed-region-aware verification), and `check_safety_all` (all 32 rules in one call).
+- Comprehensive MCP JSON-RPC 2.0 stdio server providing 33 specialized tools for modern agentic workflows (including `verify_proof`, `audit_taint_path`, `semantic_analyze`, `prepare_context`, and `verified_patch`), plus three agentic loop tools: `explain_violation` (structured violation with line/column/snippet and fix pattern), `diff_check` (changed-region-aware verification), and `check_safety_all` (all 32 rules in one call). `check`/`check_safety` are fast first-failure gates (they stop at the first violation); `check_safety_all` reports every violation across all 32 rules.
 
 ---
 
@@ -113,7 +112,7 @@ Benchmarked on optimized release build (`--release`, AVX2 enabled, thin LTO):
 | **💾 ACID Multi-File Staging & Commit** | 200 txs | `170.000 ms` | **`0.85 ms`** | **100% PASS** |
 | **🛡️ Compound `verified_patch` Pipeline** | 200 atomic patches | `296.000 ms` | **`1.48 ms`** | **100% PASS** |
 
-**Test Suite Health:** **`246 / 246 Tests Passing (0 Failures, 100% Safe Rust)`**
+**Test Suite Health:** Library test suite (`cargo test --release --lib`) green at the v2.5.0 release commit; the previously claimed hand-written test count was removed because it matched no measured run — CI is the source of truth for the full suite.
 
 ---
 

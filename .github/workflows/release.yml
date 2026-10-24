@@ -31,9 +31,13 @@ jobs:
           targets: ${{ matrix.target }}
       - name: Build Binary
         run: cargo build --release --target ${{ matrix.target }}
+      - name: Generate SHA256 checksum
+        run: sha256sum target/${{ matrix.target }}/release/${{ matrix.artifact_name }} > SHA256SUMS-${{ matrix.target }}.txt
       - name: Upload Binary to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+          files: |
+            target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+            SHA256SUMS-${{ matrix.target }}.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

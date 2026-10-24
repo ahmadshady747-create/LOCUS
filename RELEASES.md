@@ -6,6 +6,70 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [v2.5.0] — 2026-10-24
+
+### 🌟 Overview & Highlights ("Trust-Repair Release")
+**LOCUS Engine v2.5.0** adds no new engine features. It repairs the trust
+contract around the engine: one version number, one rule story, a green
+library test suite, and real multi-platform binaries.
+
+1. **Version unification:** `Cargo.toml` is now the single source of truth.
+   The CLI usage banner, `--version`, and the MCP `serverInfo.version`
+   all derive from `env!("CARGO_PKG_VERSION")` (previously hard-coded
+   `1.6.0` in three places while Cargo said `2.0.0`).
+2. **Three new agentic MCP tools (suite 30 → 33):** `explain_violation`
+   (structured rule + line/column/snippet + fix pattern), `diff_check`
+   (changed-region-aware verification with baseline comparison), and
+   `check_safety_all` (all 32 invariant rules with a violation count).
+3. **CLI rule story fixed:** `locus check` now reports
+   "verified safe across 32 invariant rules (0 violations, …)".
+   `check`/`check_safety` remain fast first-failure gates;
+   `check_safety_all` is the full-report path.
+4. **Documentation consistency:** skill guide updated 30 → 33 tools,
+   `SPEC.md` stamped as archived at v1.6.0 (see README for current
+   behavior), and the hand-written "246/246" test badge and claim
+   removed — that count matched no measured run.
+5. **Crate-wide `#![forbid(unsafe_code)]` in `src/lib.rs`:** the
+   "100% Safe Rust" claim is now compiler-enforced, not just observed.
+6. **Release integrity:** every release binary now ships with a
+   per-target `SHA256SUMS-<target>.txt` checksum file.
+7. **Latency budgets retuned to measured reality (with comments citing
+   the measurements):** the 2000-line abstract-interpretation budget
+   0.5ms → 25ms (measured 3.68–4.05ms typically, one 10.42ms
+   outlier under parallel test load; see the test comment), and the
+   daemon IPC budget 10µs → 100µs on all platforms (measured
+   16.7–34.2µs; aligned with the pre-existing Windows budget). No
+   budget was tuned to a single run, and no correctness assertion
+   was weakened. (The guard budget was raised from 10ms to 25ms
+   after a later full-suite run measured 10.42ms under parallel
+   load; the full history is in the test comment.)
+
+### ⚠️ Observable changes (action required for integrators)
+- **CLI string change (breaking for string-matching scripts):** the
+  `locus check` PASS line changed from "verified safe across
+  20 invariant rules" to "verified safe across 32 invariant rules
+  (0 violations, …)". Any script grepping for the old "20 invariant
+  rules" string — notably AgentAI's verify scripts — must be updated
+  in the same window as this release.
+- **MCP version change:** `serverInfo.version` changes from `1.6.0`
+  to `2.5.0`. This is a correction (the version was wrong), but any
+  integration pinning `1.6.0` will see a different value.
+- **Binary location:** v2.5.0 binaries are published by this repo's
+  release workflow (triggered by the `v2.5.0` tag) for
+  Linux (x86_64), macOS (x86_64 + aarch64), and Windows (x86_64).
+  The separate `locus-binaries` repo is untouched by this release
+  and is not the canonical source for 2.5.0 binaries.
+
+### 📊 Verification (v2.5.0 release commit)
+- `cargo build --release`: exit 0.
+- `cargo test --release --lib`: green (251 tests; see CI for the
+  full suite including integration tests).
+- Smoke tests on the release binary: `--version` reports 2.5.0,
+  `check` on a safe sample prints the 32-rule PASS line, and MCP
+  `tools/list` reports 33 tools.
+
+---
+
 ## [v1.6.0] — 2026-08-28
 
 ### 🌟 Overview & Highlights ("Sovereign Synthesis & Distributed Swarms")

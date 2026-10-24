@@ -15,38 +15,8 @@ use locus_engine::{
 
 fn print_usage() {
     eprintln!(
-        r#"locus-engine CLI v1.6.0
-
-USAGE:
-    locus check <file_path>
-    locus skeleton <file_path>
-    locus contract <intent> [--lang <lang>] [--target <file_path>]
-    locus slice <symbol_name> <file_path> [--depth <depth>]
-    locus graph <directory_path>
-    locus impact <symbol_name> <file_or_dir> [--depth <depth>]
-    locus refs <symbol_name> <directory_path>
-    locus patch <file_path> --symbol <symbol_name> --with <new_code>
-    locus fix <file_path>
-    locus search <query> [<directory_path>]
-    locus taint <file_path> [<symbol_name>]
-    locus lease <acquire|release|list> ...
-    locus mcp
-
-COMMANDS:
-    check       Run deterministic safety verification on a target source file
-    skeleton    Extract high-level AST skeleton preserving imports, types, and component signatures
-    contract    Synthesize strict type scaffolding and safety invariant checklist from intent
-    slice       Extract high-density intent context slice around a target symbol
-    graph       Index directory, construct cross-file symbol graph, and report architectural health
-    impact      Analyze blast-radius impact and breaking change risk of modifying a symbol
-    refs        Find all inbound references, imports, and call sites of a symbol across the project
-    patch       Surgically replace a named AST symbol with new code
-    fix         Deterministically remediate unclosed JSX, null access, and conditional hooks
-    search      Execute sub-millisecond in-memory hybrid AST lexical + HNSW vector search
-    taint       Trace cross-file taint flows, unvalidated inputs, and unhandled Option/null returns
-    lease       Manage multi-agent concurrency leases on fully qualified symbols (FQN)
-    mcp         Start MCP server over stdio for Claude Code, Cursor, and Antigravity
-"#
+        "locus-engine CLI v{}\n\nUSAGE:\n    locus check <file_path>\n    locus skeleton <file_path>\n    locus contract <intent> [--lang <lang>] [--target <file_path>]\n    locus slice <symbol_name> <file_path> [--depth <depth>]\n    locus graph <directory_path>\n    locus impact <symbol_name> <file_or_dir> [--depth <depth>]\n    locus refs <symbol_name> <directory_path>\n    locus patch <file_path> --symbol <symbol_name> --with <new_code>\n    locus fix <file_path>\n    locus search <query> [<directory_path>]\n    locus taint <file_path> [<symbol_name>]\n    locus lease <acquire|release|list> ...\n    locus mcp\n\nCOMMANDS:\n    check       Run deterministic safety verification on a target source file\n    skeleton    Extract high-level AST skeleton preserving imports, types, and component signatures\n    contract    Synthesize strict type scaffolding and safety invariant checklist from intent\n    slice       Extract high-density intent context slice around a target symbol\n    graph       Index directory, construct cross-file symbol graph, and report architectural health\n    impact      Analyze blast-radius impact and breaking change risk of modifying a symbol\n    refs        Find all inbound references, imports, and call sites of a symbol across the project\n    patch       Surgically replace a named AST symbol with new code\n    fix         Deterministically remediate unclosed JSX, null access, and conditional hooks\n    search      Execute sub-millisecond in-memory hybrid AST lexical + HNSW vector search\n    taint       Trace cross-file taint flows, unvalidated inputs, and unhandled Option/null returns\n    lease       Manage multi-agent concurrency leases on fully qualified symbols (FQN)\n    mcp         Start MCP server over stdio for Claude Code, Cursor, and Antigravity\nNOTE:\n    check is a fast first-failure gate over all 32 invariant rules: it stops at\n    the first violation. The MCP tool check_safety_all reports every violation.\n",
+        env!("CARGO_PKG_VERSION")
     );
 }
 
@@ -59,7 +29,7 @@ fn main() {
 
     match args[1].as_str() {
         "--version" | "-v" | "-V" | "version" => {
-            println!("locus-engine v1.6.0");
+            println!("locus-engine v{}", env!("CARGO_PKG_VERSION"));
         }
 
         "mcp" => {
@@ -170,7 +140,7 @@ fn main() {
             let report = AstGuard::verify(&content);
             if report.passed {
                 println!(
-                    "PASS: '{}' verified safe across 20 invariant rules ({:.2}ms)",
+                    "PASS: '{}' verified safe across 32 invariant rules (0 violations, {:.2}ms)",
                     file_path, report.latency_ms
                 );
             } else {
