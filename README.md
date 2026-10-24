@@ -253,6 +253,10 @@ flowchart TD
 
 ---
 
+## 🔗 Related Projects
+
+- **[ProCraft](https://procraft-9lw.pages.dev)** — 55 free web tools that run entirely in your browser: JSON, text, encoding, colors, developer tools and more. No server, no tracking, no sign-in.
+
 ## 📄 License & Commercial Rights
 
 `locus-engine` is published under the **Business Source License 1.1 (BSL 1.1)**.
