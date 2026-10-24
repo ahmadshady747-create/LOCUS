@@ -1,7 +1,7 @@
 <!-- #[cfg(test)] assert!(guard > 0); -->
 # locus-engine 🦀⚡
 
-> **Deterministic AST Safety Firewall, Abstract Interpretation & Symbolic Range Analysis, Canonical Loop Bounds Prover, Lossless CST Green-Red Tree, 32 Enterprise Invariants, Inter-Procedural SSA Taint Engine, SIMD Hardware-Accelerated Vector Search, Multi-Agent Swarm OCC & 30-Tool Model Context Protocol Server in 100% Safe Rust.**
+> **Deterministic AST Safety Firewall, Abstract Interpretation & Symbolic Range Analysis, Canonical Loop Bounds Prover, Lossless CST Green-Red Tree, 32 Enterprise Invariants, Inter-Procedural SSA Taint Engine, SIMD Hardware-Accelerated Vector Search, Multi-Agent Swarm OCC & 33-Tool Model Context Protocol Server in 100% Safe Rust.**
 
 <p align="left">
   <a href="RELEASES.md"><img src="https://img.shields.io/badge/Release-v2.0.0%20(GA)-blue.svg" alt="Release" /></a>
@@ -81,8 +81,8 @@ Modern autonomous AI coding agents (Claude Code, Cursor, Copilot, Antigravity, D
 ### 10. 💾 Multi-File ACID Workspace Transactions (`begin_tx`, `stage_tx`, `commit_tx`, `rollback_tx`)
 - In-memory shadow buffers and two-phase commits guaranteeing zero disk corruption and zero workspace drift.
 
-### 11. 🔌 Model Context Protocol Server (30 Sovereign Native Tools)
-- Comprehensive MCP JSON-RPC 2.0 stdio server providing 30 specialized tools for modern agentic workflows (including `verify_proof`, `audit_taint_path`, `semantic_analyze`, `prepare_context`, and `verified_patch`).
+### 11. 🔌 Model Context Protocol Server (33 Sovereign Native Tools)
+- Comprehensive MCP JSON-RPC 2.0 stdio server providing 33 specialized tools for modern agentic workflows (including `verify_proof`, `audit_taint_path`, `semantic_analyze`, `prepare_context`, and `verified_patch`), plus three agentic loop tools: `explain_violation` (structured violation with line/column/snippet and fix pattern), `diff_check` (changed-region-aware verification), and `check_safety_all` (all 32 rules in one call).
 
 ---
 
@@ -214,7 +214,7 @@ flowchart TD
 
 ---
 
-## 🔌 Complete MCP Tool Suite (30 Native Tools)
+## 🔌 Complete MCP Tool Suite (33 Native Tools)
 
 | Tool Name | Description | Subsystem |
 | :--- | :--- | :--- |
@@ -248,6 +248,9 @@ flowchart TD
 | `hybrid_search`       | Hybrid lexical (BM25) and vector similarity search | Search |
 | `semantic_analyze`    | Deep semantic analysis of control flow and side effects | Semantic Graph |
 | `verify_proof`        | Formal mathematical weakest-precondition proof verification | Formal Verification |
+| `explain_violation` | Structured violation report: rule, line/column, snippet, and fix pattern | Safety Core |
+| `diff_check`        | Verifies new code and reports whether a violation is in the changed region or pre-existing | Analysis |
+| `check_safety_all`  | Runs all 32 invariant rules and returns every violation with a count | Safety Core |
 
 ---
 

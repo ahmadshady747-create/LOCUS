@@ -16,6 +16,7 @@ use crate::graph::SymbolGraph;
 use crate::guard::AstGuard;
 use crate::slice::ContextSlicer;
 use crate::types::Language;
+use crate::types::ViolationKind;
 
 static LEASE_REGISTRY: std::sync::LazyLock<crate::lease::LeaseRegistry> =
     std::sync::LazyLock::new(crate::lease::LeaseRegistry::new);
@@ -768,6 +769,58 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
                                 }
                             }
                         }
+                    },
+                    {
+                        "name": "explain_violation",
+                        "description": "Agentic violation explainer: runs the AST safety check and returns a structured, machine-readable report — rule, detail, 1-based line and column, offending line text, and an actionable fix pattern — instead of a prose message. Returns passed:true with null location fields when the code is clean.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "path": {
+                                    "type": "string",
+                                    "description": "Path to the source file to verify on disk"
+                                },
+                                "code": {
+                                    "type": "string",
+                                    "description": "Raw code snippet to verify (optional if path is provided)"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "diff_check",
+                        "description": "Agentic change-scoped check: verifies new_code and reports whether the first violation lies inside the changed line range (computed by common line prefix/suffix against old_code) or is pre-existing, plus a baseline check of old_code. Lets an agent tell 'my edit broke this' apart from 'this was already broken'.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "old_code": {
+                                    "type": "string",
+                                    "description": "Original source code before the edit"
+                                },
+                                "new_code": {
+                                    "type": "string",
+                                    "description": "Source code after the edit"
+                                }
+                            },
+                            "required": ["old_code", "new_code"]
+                        }
+                    },
+                    {
+                        "name": "check_safety_all",
+                        "description": "Runs all 32 invariant rules and returns EVERY violation found (with violation_count), unlike check_safety which stops at the first failure. Lets an agent fix all violations in one pass instead of looping fix-recheck per violation.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "path": {
+                                    "type": "string",
+                                    "description": "Path to the source file to verify on disk"
+                                },
+                                "code": {
+                                    "type": "string",
+                                    "description": "Raw code snippet to verify (optional if path is provided)"
+                                }
+                            }
+                        }
                     }
                 ]
             });
@@ -810,6 +863,96 @@ pub fn handle_json_rpc_message(raw_json: &str) -> Option<String> {
             }
         }
     }
+}
+
+
+/// Agentic helpers for the new MCP tools (explain_violation, diff_check).
+/// Parse "byte N" out of an AstGuard detail string, e.g. "… at byte 30: `xs[0]`".
+fn parse_byte_offset(detail: &str) -> Option<usize> {
+    let idx = detail.find("byte ")? + 5;
+    let rest = &detail[idx..];
+    let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+    if digits.is_empty() {
+        None
+    } else {
+        digits.parse().ok()
+    }
+}
+
+/// Convert a byte offset into 1-based (line, column) plus the full line text.
+/// The offset is clamped to a UTF-8 char boundary; out-of-range offsets
+/// (beyond the end of the source) are clamped to the end.
+fn byte_to_line_col(code: &str, mut byte: usize) -> Option<(usize, usize, String)> {
+    if byte > code.len() {
+        byte = code.len();
+    }
+    while byte > 0 && !code.is_char_boundary(byte) {
+        byte -= 1;
+    }
+    let prefix = &code[..byte];
+    let line = prefix.matches('\n').count() + 1;
+    let line_start = prefix.rfind('\n').map(|i| i + 1).unwrap_or(0);
+    let column = prefix[line_start..].chars().count() + 1;
+    let snippet = code.lines().nth(line - 1).unwrap_or("").to_string();
+    Some((line, column, snippet))
+}
+
+/// Actionable fix pattern for a violation kind. This is guidance text for an
+/// agent to act on, not an automatic rewrite.
+fn fix_pattern(kind: &ViolationKind) -> &'static str {
+    match kind {
+        ViolationKind::ArrayOutOfBounds => {
+            "Replace direct indexing `xs[i]` with `xs.get(i)` and handle None, or guard with `i < xs.len()`."
+        }
+        ViolationKind::UnsafeUnwrap => {
+            "Replace `.unwrap()`/`.expect()` with `match`, `?`, or `ok_or`/`unwrap_or` handling."
+        }
+        ViolationKind::DivisionByZero => {
+            "Guard the divisor (e.g. `if divisor != 0`) or use `checked_div` and handle None."
+        }
+        ViolationKind::UncheckedArithmeticOverflow => {
+            "Use `checked_*` arithmetic (`checked_add`/`checked_sub`/`checked_mul`) and handle None."
+        }
+        ViolationKind::UnbalancedDelimiters => {
+            "Balance braces, brackets, and parentheses; check the reported region for a missing closer."
+        }
+        ViolationKind::AsyncMutexAcrossAwait => {
+            "Scope and drop the mutex guard before `.await`, or use an async-aware lock."
+        }
+        _ => "Manual review required for this rule; see detail.",
+    }
+}
+
+/// Changed line range in `new_lines` relative to `old_lines`, computed by
+/// common line prefix/suffix. 1-based inclusive (start, end); None when the
+/// two texts are identical (or the new text is empty).
+fn changed_line_range(old_lines: &[&str], new_lines: &[&str]) -> Option<(usize, usize)> {
+    if new_lines.is_empty() {
+        return None;
+    }
+    if old_lines == new_lines {
+        return None;
+    }
+    let mut prefix = 0;
+    while prefix < old_lines.len()
+        && prefix < new_lines.len()
+        && old_lines[prefix] == new_lines[prefix]
+    {
+        prefix += 1;
+    }
+    let mut suffix = 0;
+    while suffix < old_lines.len() - prefix
+        && suffix < new_lines.len() - prefix
+        && old_lines[old_lines.len() - 1 - suffix] == new_lines[new_lines.len() - 1 - suffix]
+    {
+        suffix += 1;
+    }
+    let start = prefix + 1;
+    let mut end = new_lines.len() - suffix;
+    if end < start {
+        end = start;
+    }
+    Some((start, end))
 }
 
 fn execute_tool(name: &str, args: &Value) -> Value {
@@ -1870,6 +2013,136 @@ fn execute_tool(name: &str, args: &Value) -> Value {
             })
         }
 
+        "explain_violation" => {
+            let code = if let Some(c) = args.get("code").and_then(|s| s.as_str()) {
+                c.to_string()
+            } else if let Some(p) = args.get("path").and_then(|s| s.as_str()) {
+                match fs::read_to_string(p) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        return json!({
+                            "content": [{"type": "text", "text": format!("Error reading path '{}': {}", p, e)}],
+                            "isError": true
+                        });
+                    }
+                }
+            } else {
+                return json!({
+                    "content": [{"type": "text", "text": "Error: Either 'code' or 'path' argument is required"}],
+                    "isError": true
+                });
+            };
+
+            let report = AstGuard::verify(&code);
+            let (line, column, snippet) = report
+                .detail
+                .as_ref()
+                .and_then(|d| parse_byte_offset(d))
+                .and_then(|b| byte_to_line_col(&code, b))
+                .map(|(l, c, s)| (Some(l), Some(c), Some(s)))
+                .unwrap_or((None, None, None));
+            let result = json!({
+                "passed": report.passed,
+                "violation": report.violation.as_ref().map(|v| v.to_string()),
+                "detail": report.detail,
+                "violations": report.violations,
+                "line": line,
+                "column": column,
+                "snippet": snippet,
+                "fix_pattern": report.violation.as_ref().map(fix_pattern),
+                "latency_ms": report.latency_ms
+            });
+            json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&result).unwrap_or_default()}]
+            })
+        }
+
+        "diff_check" => {
+            let old_code = match args.get("old_code").and_then(|s| s.as_str()) {
+                Some(c) => c,
+                None => {
+                    return json!({
+                        "content": [{"type": "text", "text": "Error: 'old_code' argument is required"}],
+                        "isError": true
+                    });
+                }
+            };
+            let new_code = match args.get("new_code").and_then(|s| s.as_str()) {
+                Some(c) => c,
+                None => {
+                    return json!({
+                        "content": [{"type": "text", "text": "Error: 'new_code' argument is required"}],
+                        "isError": true
+                    });
+                }
+            };
+
+            let old_lines: Vec<&str> = old_code.lines().collect();
+            let new_lines: Vec<&str> = new_code.lines().collect();
+            let range = changed_line_range(&old_lines, &new_lines);
+            let new_report = AstGuard::verify(new_code);
+            let old_report = AstGuard::verify(old_code);
+            let (vline, vcolumn) = new_report
+                .detail
+                .as_ref()
+                .and_then(|d| parse_byte_offset(d))
+                .and_then(|b| byte_to_line_col(new_code, b))
+                .map(|(l, c, _)| (Some(l), Some(c)))
+                .unwrap_or((None, None));
+            let in_changed_region = match (vline, range) {
+                (Some(l), Some((start, end))) => Some(l >= start && l <= end),
+                _ => None,
+            };
+            let result = json!({
+                "passed": new_report.passed,
+                "baseline_passed": old_report.passed,
+                "changed_lines": range.map(|(s, e)| json!({"start": s, "end": e})),
+                "violation": new_report.violation.as_ref().map(|v| v.to_string()),
+                "detail": new_report.detail,
+                "violation_line": vline,
+                "violation_column": vcolumn,
+                "in_changed_region": in_changed_region,
+                "latency_ms": new_report.latency_ms
+            });
+            json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&result).unwrap_or_default()}]
+            })
+        }
+
+        "check_safety_all" => {
+            let code = if let Some(c) = args.get("code").and_then(|s| s.as_str()) {
+                c.to_string()
+            } else if let Some(p) = args.get("path").and_then(|s| s.as_str()) {
+                match fs::read_to_string(p) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        return json!({
+                            "content": [{"type": "text", "text": format!("Error reading path '{}': {}", p, e)}],
+                            "isError": true
+                        });
+                    }
+                }
+            } else {
+                return json!({
+                    "content": [{"type": "text", "text": "Error: Either 'code' or 'path' argument is required"}],
+                    "isError": true
+                });
+            };
+
+            let report = crate::guard::RuleRunner::verify_all(&code);
+            let result = json!({
+                "passed": report.passed,
+                "violation": report.violation.as_ref().map(|v| v.to_string()),
+                "detail": report.detail,
+                "violations": report.violations,
+                "violation_count": report.violations.len(),
+                "latency_ms": report.latency_ms
+            });
+            json!({
+                "content": [{"type": "text", "text": serde_json::to_string_pretty(&result).unwrap_or_default()}]
+            })
+        }
+
         _ => {
             json!({
                 "content": [{"type": "text", "text": format!("Unknown tool: {}", name)}],
@@ -1934,7 +2207,7 @@ mod tests {
         let resp = handle_json_rpc_message(list_req).expect("Response expected");
         let parsed: Value = serde_json::from_str(&resp).unwrap();
         let tools = parsed["result"]["tools"].as_array().expect("Tools array");
-        assert_eq!(tools.len(), 30);
+        assert_eq!(tools.len(), 33);
 
         let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
         assert!(names.contains(&"check_safety"));
@@ -1967,6 +2240,81 @@ mod tests {
         assert!(names.contains(&"simd_vector_search"));
         assert!(names.contains(&"semantic_analyze"));
         assert!(names.contains(&"verify_proof"));
+        assert!(names.contains(&"explain_violation"));
+        assert!(names.contains(&"diff_check"));
+        assert!(names.contains(&"check_safety_all"));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_explain_violation_array_oob() {
+        let call_req = r#"{
+            "jsonrpc": "2.0",
+            "id": 91,
+            "method": "tools/call",
+            "params": {
+                "name": "explain_violation",
+                "arguments": {
+                    "code": "fn get(xs: Vec<u32>) -> u32 { xs[0] }"
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(call_req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        let report: Value = serde_json::from_str(text).unwrap();
+        assert_eq!(report["passed"], false);
+        assert_eq!(report["violation"], "ARRAY_OOB");
+        assert_eq!(report["line"], 1);
+        assert!(report["snippet"].as_str().unwrap().contains("xs[0]"));
+        assert!(report["fix_pattern"].as_str().unwrap().contains(".get("));
+    }
+
+    #[test]
+    fn test_mcp_tool_call_diff_check_violation_in_changed_region() {
+        let call_req = r#"{
+            "jsonrpc": "2.0",
+            "id": 92,
+            "method": "tools/call",
+            "params": {
+                "name": "diff_check",
+                "arguments": {
+                    "old_code": "fn get(xs: Vec<u32>) -> u32 { 0 }",
+                    "new_code": "fn get(xs: Vec<u32>) -> u32 { xs[0] }"
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(call_req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        let report: Value = serde_json::from_str(text).unwrap();
+        assert_eq!(report["passed"], false);
+        assert_eq!(report["baseline_passed"], true);
+        assert_eq!(report["in_changed_region"], true);
+        assert_eq!(report["violation_line"], 1);
+    }
+
+    #[test]
+    fn test_mcp_tool_call_check_safety_all_reports_all_violations() {
+        let call_req = r#"{
+            "jsonrpc": "2.0",
+            "id": 93,
+            "method": "tools/call",
+            "params": {
+                "name": "check_safety_all",
+                "arguments": {
+                    "code": "fn f(xs: Vec<u32>, o: Option<u32>) -> u32 { xs[0] + o.unwrap() }"
+                }
+            }
+        }"#;
+        let resp = handle_json_rpc_message(call_req).expect("Response expected");
+        let parsed: Value = serde_json::from_str(&resp).unwrap();
+        let text = parsed["result"]["content"][0]["text"].as_str().unwrap();
+        let report: Value = serde_json::from_str(text).unwrap();
+        assert_eq!(report["passed"], false);
+        assert!(report["violation_count"].as_u64().unwrap() >= 2);
+        let joined = report["violations"].to_string();
+        assert!(joined.contains("ARRAY_OOB"));
+        assert!(joined.contains("UNSAFE_UNWRAP"));
     }
 
     #[test]
