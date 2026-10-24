@@ -203,6 +203,152 @@ impl FactStack {
         false
     }
 
+    /// Mask string literals and comments, preserving byte offsets and newlines.
+    ///
+    /// Without this, the deep-access scan below reads dotted text inside a
+    /// string as code: in `fetch("https://api.example.com/data")` it matched
+    /// `api.example.com` and reported a NullDereference, shadowing the real
+    /// FloatingPromise violation. Masking keeps every byte position (each
+    /// masked byte becomes a space, newlines are kept), so reported offsets
+    /// still line up with the original source. Template-literal `${...}`
+    /// interpolations are left as code, since they are real expressions.
+    fn mask_string_and_comment_literals(source: &str) -> String {
+        #[derive(Clone, Copy, PartialEq, Eq)]
+        enum Frame {
+            Code,
+            Single,
+            Double,
+            Template,
+            TemplateExpr,
+            LineComment,
+            BlockComment,
+        }
+
+        let bytes = source.as_bytes();
+        let mut out = bytes.to_vec();
+        let mut stack: Vec<Frame> = vec![Frame::Code];
+        // Brace depth for the innermost template interpolation, if any.
+        let mut expr_depth: Vec<usize> = Vec::new();
+        let mut i = 0;
+        while i < bytes.len() {
+            let frame = *stack.last().unwrap_or(&Frame::Code);
+            let b = bytes[i];
+            match frame {
+                Frame::Code | Frame::TemplateExpr => {
+                    if b == b'/' && i + 1 < bytes.len() && bytes[i + 1] == b'/' {
+                        out[i] = b' ';
+                        out[i + 1] = b' ';
+                        stack.push(Frame::LineComment);
+                        i += 2;
+                    } else if b == b'/' && i + 1 < bytes.len() && bytes[i + 1] == b'*' {
+                        out[i] = b' ';
+                        out[i + 1] = b' ';
+                        stack.push(Frame::BlockComment);
+                        i += 2;
+                    } else if b == b'\'' {
+                        out[i] = b' ';
+                        stack.push(Frame::Single);
+                        i += 1;
+                    } else if b == b'"' {
+                        out[i] = b' ';
+                        stack.push(Frame::Double);
+                        i += 1;
+                    } else if b == b'`' {
+                        out[i] = b' ';
+                        stack.push(Frame::Template);
+                        i += 1;
+                    } else if frame == Frame::TemplateExpr && b == b'{' {
+                        if let Some(d) = expr_depth.last_mut() {
+                            *d += 1;
+                        }
+                        i += 1;
+                    } else if frame == Frame::TemplateExpr && b == b'}' {
+                        if let Some(d) = expr_depth.last_mut() {
+                            *d -= 1;
+                            if *d == 0 {
+                                expr_depth.pop();
+                                stack.pop();
+                            }
+                        }
+                        i += 1;
+                    } else {
+                        i += 1;
+                    }
+                }
+                Frame::Single | Frame::Double => {
+                    let quote = if frame == Frame::Single { b'\'' } else { b'"' };
+                    if b == b'\\' {
+                        out[i] = b' ';
+                        if i + 1 < bytes.len() && bytes[i + 1] != b'\n' {
+                            out[i + 1] = b' ';
+                            i += 2;
+                        } else {
+                            i += 1;
+                        }
+                    } else if b == quote {
+                        out[i] = b' ';
+                        stack.pop();
+                        i += 1;
+                    } else if b == b'\n' {
+                        // Unterminated string: the line ends here.
+                        stack.pop();
+                    } else {
+                        out[i] = b' ';
+                        i += 1;
+                    }
+                }
+                Frame::Template => {
+                    if b == b'\\' {
+                        out[i] = b' ';
+                        if i + 1 < bytes.len() && bytes[i + 1] != b'\n' {
+                            out[i + 1] = b' ';
+                            i += 2;
+                        } else {
+                            i += 1;
+                        }
+                    } else if b == b'`' {
+                        out[i] = b' ';
+                        stack.pop();
+                        i += 1;
+                    } else if b == b'$' && i + 1 < bytes.len() && bytes[i + 1] == b'{' {
+                        // Interpolation is real code: keep it visible.
+                        stack.push(Frame::TemplateExpr);
+                        expr_depth.push(1);
+                        i += 2;
+                    } else if b == b'\n' {
+                        i += 1;
+                    } else {
+                        out[i] = b' ';
+                        i += 1;
+                    }
+                }
+                Frame::LineComment => {
+                    if b == b'\n' {
+                        stack.pop();
+                        i += 1;
+                    } else {
+                        out[i] = b' ';
+                        i += 1;
+                    }
+                }
+                Frame::BlockComment => {
+                    if b == b'*' && i + 1 < bytes.len() && bytes[i + 1] == b'/' {
+                        out[i] = b' ';
+                        out[i + 1] = b' ';
+                        stack.pop();
+                        i += 2;
+                    } else if b == b'\n' {
+                        i += 1;
+                    } else {
+                        out[i] = b' ';
+                        i += 1;
+                    }
+                }
+            }
+        }
+        String::from_utf8(out).unwrap_or_else(|_| source.to_string())
+    }
+
     /// Full flow-sensitive check for null dereference violations.
     pub fn check_null_deref(source: &str) -> Option<String> {
         let is_rust = source.contains("fn ")
@@ -222,6 +368,11 @@ impl FactStack {
         if !is_ts_or_js {
             return None;
         }
+
+        // Scan code, not string contents or comments: dotted text inside a
+        // URL or message is not a property access.
+        let masked = Self::mask_string_and_comment_literals(source);
+        let source = masked.as_str();
 
         let fact_stack = Self::analyze(source);
 
@@ -369,5 +520,39 @@ mod tests {
         "#;
         let violation = FactStack::check_null_deref(code);
         assert!(violation.is_some());
+    }
+
+    #[test]
+    fn test_url_string_is_not_a_null_deref() {
+        // Regression test: `api.example.com` inside a URL string is not a
+        // property access, and must not shadow a real FloatingPromise.
+        let code = r#"
+        function handleSync() {
+            fetch("https://api.example.com/data");
+        }
+        "#;
+        assert_eq!(FactStack::check_null_deref(code), None);
+    }
+
+    #[test]
+    fn test_dotted_string_and_comment_are_not_null_derefs() {
+        let code = r#"
+        export function getUrl() {
+            const url = "https://api.example.com/data";
+            // see res.data.user.profile in the docs
+            return url;
+        }
+        "#;
+        assert_eq!(FactStack::check_null_deref(code), None);
+    }
+
+    #[test]
+    fn test_template_interpolation_still_checked() {
+        let code = r#"
+        export function getUser(res: any) {
+            return `user: ${res.data.user.profile}`;
+        }
+        "#;
+        assert!(FactStack::check_null_deref(code).is_some());
     }
 }

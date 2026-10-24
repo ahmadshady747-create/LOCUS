@@ -1,10 +1,10 @@
-//! Phase 1.6 Verification: 28 Sovereign Native MCP Tools & JSON-RPC 2.0 Dispatcher.
+//! Phase 1.6 Verification: 33 Sovereign Native MCP Tools & JSON-RPC 2.0 Dispatcher.
 
 use locus_engine::mcp::handle_json_rpc_message;
 use serde_json::{json, Value};
 
 #[test]
-fn test_mcp_tools_list_contains_all_28_tools() {
+fn test_mcp_tools_list_contains_all_33_tools() {
     let req = r#"{
         "jsonrpc": "2.0",
         "id": "list-req-1",
@@ -15,7 +15,7 @@ fn test_mcp_tools_list_contains_all_28_tools() {
     let resp: Value = serde_json::from_str(&resp_str).expect("Valid JSON");
     let tools = resp["result"]["tools"].as_array().expect("Tools array");
 
-    assert_eq!(tools.len(), 28, "Expected exactly 28 registered MCP tools");
+    assert_eq!(tools.len(), 33, "Expected exactly 33 registered MCP tools");
 
     let expected_tools = [
         "check_safety",
@@ -46,6 +46,9 @@ fn test_mcp_tools_list_contains_all_28_tools() {
         "verify_occ_token",
         "morph_ast",
         "simd_vector_search",
+        "explain_violation",
+        "diff_check",
+        "check_safety_all",
     ];
 
     let tool_names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
